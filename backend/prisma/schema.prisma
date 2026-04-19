@@ -1,0 +1,193 @@
+datasource db {
+  provider = "mysql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+
+  practitioner Practitioner?
+  patient      Patient?
+}
+
+model Practitioner {
+  id        Int    @id @default(autoincrement())
+  userId    Int    @unique
+  user      User   @relation(fields: [userId], references: [id])
+
+  patients  Patient[]
+  orders    Order[]
+  commissions Commission[]
+  carts     Cart[]
+}
+
+model Patient {
+  id             Int    @id @default(autoincrement())
+  userId         Int    @unique
+  practitionerId Int?
+
+  user           User   @relation(fields: [userId], references: [id])
+  practitioner   Practitioner? @relation(fields: [practitionerId], references: [id])
+
+  orders         Order[]
+  carts          Cart[]
+}
+
+model Vendor {
+  id      Int     @id @default(autoincrement())
+  name    String
+  type    VendorType
+
+  products Product[]
+}
+
+model Product {
+  id                  Int    @id @default(autoincrement())
+  name                String
+  description         String?
+  category            ProductCategory
+  vendorId            Int
+  patientPrice        Float
+  practitionerPrice   Float
+  labTestCode         String?
+  imageUrl            String?
+
+  vendor              Vendor @relation(fields: [vendorId], references: [id])
+  orderItems          OrderItem[]
+  cartItems           CartItem[]
+}
+
+model Cart {
+  id               Int       @id @default(autoincrement())
+  practitionerId   Int
+  scope            CartScope
+  patientId        Int?
+  updatedAt        DateTime  @updatedAt
+
+  practitioner     Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  patient            Patient?     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  items              CartItem[]
+
+  @@index([practitionerId, scope, patientId])
+}
+
+model CartItem {
+  id        Int             @id @default(autoincrement())
+  cartId    Int
+  productId Int
+  quantity  Int             @default(1)
+  addedBy   CartItemSource
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+}
+
+enum CartScope {
+  SELF
+  PATIENT
+}
+
+enum CartItemSource {
+  PRACTITIONER
+  PATIENT
+}
+
+model Order {
+  id             Int      @id @default(autoincrement())
+  patientId      Int?
+  practitionerId Int?
+  type           OrderType
+  totalAmount    Float
+
+  status         OrderStatus @default(PENDING)
+  paymentStatus  PaymentStatus @default(PENDING)
+  createdAt      DateTime @default(now())
+
+  patient        Patient? @relation(fields: [patientId], references: [id])
+  practitioner   Practitioner? @relation(fields: [practitionerId], references: [id])
+
+  items          OrderItem[]
+  commission     Commission?
+  testResult     TestResult?
+}
+
+model OrderItem {
+  id                 Int   @id @default(autoincrement())
+  orderId            Int
+  productId          Int
+  quantity           Int   @default(1)
+
+  patientPrice       Float
+  practitionerPrice  Float
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+enum CommissionPayoutStatus {
+  PENDING
+  PAID
+}
+
+model Commission {
+  id             Int                     @id @default(autoincrement())
+  practitionerId Int
+  orderId        Int                     @unique
+  amount         Float
+  payoutStatus   CommissionPayoutStatus  @default(PENDING)
+
+  practitioner Practitioner @relation(fields: [practitionerId], references: [id])
+  order        Order @relation(fields: [orderId], references: [id])
+}
+
+model TestResult {
+  id        Int    @id @default(autoincrement())
+  orderId   Int    @unique
+  reportUrl String
+  status    String
+  summary   String?
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  PRACTITIONER
+  PATIENT
+}
+
+enum VendorType {
+  LAB
+  SUPPLEMENT
+}
+
+enum ProductCategory {
+  BLOOD_TEST
+  SUPPLEMENT
+}
+
+enum OrderType {
+  SELF
+  PATIENT
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+}
