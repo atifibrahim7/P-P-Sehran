@@ -39,14 +39,16 @@ export async function api(path, init = {}) {
   }
 
   const message = body?.error?.message ?? 'Unknown error'
+  const code = body?.error?.code
+  const details = body?.error?.details
   if (res.status === 401) {
     setToken(null)
-    throw Object.assign(new Error(message), { status: 401 })
+    throw Object.assign(new Error(message), { status: 401, code, details })
   }
   if (res.status === 403) {
-    throw Object.assign(new Error(message), { status: 403 })
+    throw Object.assign(new Error(message), { status: 403, code, details })
   }
-  throw Object.assign(new Error(message), { status: res.status })
+  throw Object.assign(new Error(message), { status: res.status, code, details })
 }
 
 // Auth
@@ -163,7 +165,12 @@ export const createVendor = (payload) => api('/vendors', { method: 'POST', body:
 export const updateVendor = (id, payload) => api(`/vendors/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
 export const createUser = (payload) => api('/users', { method: 'POST', body: JSON.stringify(payload) })
 export const updateUser = (id, payload) => api(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
-export const getPractitionerPatients = () => api('/patients')
+export const getPractitionerPatients = (params = {}) => {
+  const search = new URLSearchParams()
+  if (params.q != null && params.q !== '') search.set('q', String(params.q))
+  const q = search.toString()
+  return api(`/patients${q ? `?${q}` : ''}`)
+}
 
 // Carts (server-side; practitioner + patient)
 export const getCart = (params = {}) => {
@@ -174,6 +181,7 @@ export const getCart = (params = {}) => {
   const q = search.toString()
   return api(`/carts${q ? `?${q}` : ''}`)
 }
+export const getCartSummary = () => api('/carts/summary')
 export const addCartItem = (payload) =>
   api('/carts/items', { method: 'POST', body: JSON.stringify(payload) })
 export const updateCartItem = (itemId, quantity) =>
@@ -181,6 +189,8 @@ export const updateCartItem = (itemId, quantity) =>
 export const removeCartItem = (itemId) => api(`/carts/items/${itemId}`, { method: 'DELETE' })
 export const checkoutCart = (payload) =>
   api('/carts/checkout', { method: 'POST', body: JSON.stringify(payload) })
+export const clearCart = (payload = {}) =>
+  api('/carts/clear', { method: 'POST', body: JSON.stringify(payload) })
 
 // Orders
 export const getOrdersPage = (params = {}) => {

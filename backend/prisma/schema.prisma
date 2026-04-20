@@ -67,12 +67,13 @@ model Product {
 
 model Cart {
   id               Int       @id @default(autoincrement())
-  practitionerId   Int
+  /** Null when scope is PATIENT_DIRECT (standalone patient ordering) */
+  practitionerId   Int?
   scope            CartScope
   patientId        Int?
   updatedAt        DateTime  @updatedAt
 
-  practitioner     Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+  practitioner     Practitioner? @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
   patient            Patient?     @relation(fields: [patientId], references: [id], onDelete: Cascade)
   items              CartItem[]
 
@@ -95,6 +96,7 @@ model CartItem {
 enum CartScope {
   SELF
   PATIENT
+  PATIENT_DIRECT
 }
 
 enum CartItemSource {

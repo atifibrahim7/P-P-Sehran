@@ -121,7 +121,7 @@ const orderInclude = {
 	practitioner: { include: { user: { select: { id: true, name: true, email: true } } } },
 };
 
-/** List endpoint: items totals only; user rows for labels + search */
+/** List endpoint: user rows for labels + search */
 const orderListInclude = {
 	items: true,
 	patient: { include: { user: { select: { name: true, email: true } } } },

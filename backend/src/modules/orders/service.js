@@ -38,18 +38,39 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		throw Object.assign(new Error('At least one item required'), { status: 400 });
 	}
 
-	const practitioner = await prisma.practitioner.findUnique({
-		where: { userId: Number(practitionerUserId) },
-	});
-	if (!practitioner) throw Object.assign(new Error('Invalid practitionerId'), { status: 400 });
-
 	let patientProfileId = null;
-	if (type === 'patient') {
+	let practitionerDbId = null;
+
+	if (type === 'practitioner_self') {
+		const practitioner = await prisma.practitioner.findUnique({
+			where: { userId: Number(practitionerUserId) },
+		});
+		if (!practitioner) throw Object.assign(new Error('Invalid practitionerId'), { status: 400 });
+		practitionerDbId = practitioner.id;
+	} else {
 		const patient = await prisma.patient.findUnique({
 			where: { userId: Number(patientUserId) },
 		});
 		if (!patient) throw Object.assign(new Error('Invalid patientId'), { status: 400 });
 		patientProfileId = patient.id;
+
+		const pu =
+			practitionerUserId != null && practitionerUserId !== undefined && String(practitionerUserId) !== '';
+		if (pu) {
+			const pr = await prisma.practitioner.findUnique({
+				where: { userId: Number(practitionerUserId) },
+			});
+			if (!pr) throw Object.assign(new Error('Invalid practitionerId'), { status: 400 });
+			if (patient.practitionerId != null && patient.practitionerId !== pr.id) {
+				throw Object.assign(new Error('Patient is not linked to this practitioner'), { status: 403 });
+			}
+			practitionerDbId = pr.id;
+		} else if (patient.practitionerId != null) {
+			const pr = await prisma.practitioner.findUnique({
+				where: { id: patient.practitionerId },
+			});
+			if (pr) practitionerDbId = pr.id;
+		}
 	}
 
 	const orderType = type === 'practitioner_self' ? 'SELF' : 'PATIENT';
@@ -79,7 +100,7 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		data: {
 			type: orderType,
 			patientId: patientProfileId,
-			practitionerId: practitioner.id,
+			practitionerId: practitionerDbId,
 			totalAmount,
 			status: 'PENDING',
 			paymentStatus: 'PENDING',
