@@ -14,7 +14,7 @@ import {
   UserRound,
   Store,
 } from 'lucide-react'
-import { api, getCart, getOrders, getProductsPage, getUsersPage, getVendorsPage } from '../api/client'
+import { api, getCart, getOrdersPage, getProductsPage, getUsersPage, getVendorsPage } from '../api/client'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -39,7 +39,7 @@ export default function Sidebar({ onNavigate }) {
             getProductsPage({ type: 'lab_test', page: 1, pageSize: 1 }),
             getVendorsPage({ page: 1, pageSize: 1 }),
             getUsersPage({ page: 1, pageSize: 1 }),
-            getOrders(),
+            getOrdersPage({ page: 1, pageSize: 1 }),
             api('/commissions'),
           ])
           if (!mounted) return
@@ -50,12 +50,12 @@ export default function Sidebar({ onNavigate }) {
             labTests: psLab.status === 'fulfilled' ? psLab.value.pagination.total : 0,
             vendors: vs.status === 'fulfilled' ? vs.value.pagination.total : 0,
             users: us.status === 'fulfilled' ? us.value.pagination.total : 0,
-            orders: os.status === 'fulfilled' ? os.value.length : 0,
+            orders: os.status === 'fulfilled' ? os.value.pagination?.total ?? 0 : 0,
             commissions: commLen,
           })
         } else if (role === 'practitioner') {
           const [os, rs, cartRes, commRes] = await Promise.allSettled([
-            getOrders(),
+            getOrdersPage({ page: 1, pageSize: 1 }),
             api('/lab/results'),
             getCart(),
             api('/commissions'),
@@ -66,18 +66,22 @@ export default function Sidebar({ onNavigate }) {
           const commList = commRes.status === 'fulfilled' && Array.isArray(commRes.value) ? commRes.value : []
           const commPending = commList.filter((c) => c.payoutStatus !== 'PAID').length
           setCounts({
-            orders: os.status === 'fulfilled' ? os.value.length : 0,
+            orders: os.status === 'fulfilled' ? os.value.pagination?.total ?? 0 : 0,
             results: rs.status === 'fulfilled' ? rs.value.length : 0,
             cart: cartItems,
             commissions: commPending,
           })
         } else if (role === 'patient') {
-          const [os, rs, cartRes] = await Promise.allSettled([getOrders(), api('/lab/results'), getCart()])
+          const [os, rs, cartRes] = await Promise.allSettled([
+            getOrdersPage({ page: 1, pageSize: 1 }),
+            api('/lab/results'),
+            getCart(),
+          ])
           if (!mounted) return
           const cartItems =
             cartRes.status === 'fulfilled' && cartRes.value?.cart?.items ? cartRes.value.cart.items.length : 0
           setCounts({
-            orders: os.status === 'fulfilled' ? os.value.length : 0,
+            orders: os.status === 'fulfilled' ? os.value.pagination?.total ?? 0 : 0,
             results: rs.status === 'fulfilled' ? rs.value.length : 0,
             cart: cartItems,
           })

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../../auth/AuthProvider.jsx'
 import { addCartItem, getPractitionerPatients, getProducts } from '../../api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -9,13 +10,8 @@ import { Badge } from '@/components/ui/badge'
 
 const PATIENT_KEY = 'pp_selected_patient_user_id'
 
-function cartTargetTriggerLabel(patientUserId, patients) {
-  if (!patientUserId) return 'My cart (self-order)'
-  const p = patients.find((x) => String(x.userId) === String(patientUserId))
-  return p ? `Patient: ${p.name}` : `Patient (id ${patientUserId})`
-}
-
 export default function Catalog() {
+  const { user } = useAuth()
   const [products, setProducts] = useState([])
   const [patients, setPatients] = useState([])
   const [patientUserId, setPatientUserId] = useState(() => sessionStorage.getItem(PATIENT_KEY) || '')
@@ -55,7 +51,7 @@ export default function Catalog() {
       await addCartItem(body)
       setToast(
         patientUserId
-          ? `Added to ${patients.find((x) => String(x.userId) === patientUserId)?.name ?? 'patient'}'s cart`
+          ? `Added to ${patients.find((x) => String(x.userId) === String(patientUserId))?.name ?? 'patient'}'s cart`
           : 'Added to your cart',
       )
     } catch (e) {
@@ -98,18 +94,21 @@ export default function Catalog() {
         <CardContent className="flex flex-col gap-3 sm:max-w-md">
           <Label htmlFor="target">Target cart</Label>
           <Select
-            value={patientUserId === '' ? '__self' : patientUserId}
+            value={patientUserId === '' ? '__self' : String(patientUserId)}
             onValueChange={(v) => setPatientUserId(v === '__self' ? '' : v)}
           >
             <SelectTrigger id="target">
-              <SelectValue placeholder="My cart (self-order)">
-                {cartTargetTriggerLabel(patientUserId, patients)}
-              </SelectValue>
+              <SelectValue placeholder="My cart (self-order)" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__self">My cart (self-order)</SelectItem>
+              <SelectItem
+                value="__self"
+                label={user?.name ? `My cart (${user.name})` : 'My cart (self-order)'}
+              >
+                {user?.name ? `My cart (${user.name})` : 'My cart (self-order)'}
+              </SelectItem>
               {patients.map((p) => (
-                <SelectItem key={p.userId} value={String(p.userId)}>
+                <SelectItem key={p.userId} value={String(p.userId)} label={p.name}>
                   Patient: {p.name}
                 </SelectItem>
               ))}

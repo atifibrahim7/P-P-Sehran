@@ -21,7 +21,7 @@ function serializeOrder(order) {
 	const patientUserId = order.patient ? order.patient.userId : null;
 	const createdAt =
 		order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt;
-	return {
+	const out = {
 		id: order.id,
 		type: order.type === 'SELF' ? 'practitioner_self' : 'patient',
 		practitionerId: practitionerUserId,
@@ -34,6 +34,12 @@ function serializeOrder(order) {
 		status: order.status,
 		paymentStatus: order.paymentStatus,
 	};
+	const pu = order.patient && order.patient.user;
+	if (pu) {
+		out.patientName = pu.name;
+		out.patientEmail = pu.email;
+	}
+	return out;
 }
 
 function serializeOrderItem(it) {
@@ -110,6 +116,13 @@ const orderInclude = {
 	practitioner: true,
 };
 
+/** List endpoint: items totals only; patient user for search + labels */
+const orderListInclude = {
+	items: true,
+	patient: { include: { user: { select: { name: true, email: true } } } },
+	practitioner: true,
+};
+
 async function loadOrderWithRelations(orderId) {
 	return prisma.order.findUnique({
 		where: { id: Number(orderId) },
@@ -125,5 +138,6 @@ module.exports = {
 	serializeTestResult,
 	productCategoryLabel,
 	orderInclude,
+	orderListInclude,
 	loadOrderWithRelations,
 };

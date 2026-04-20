@@ -17,12 +17,6 @@ import { Separator } from '@/components/ui/separator'
 
 const PATIENT_KEY = 'pp_selected_patient_user_id'
 
-function patientSelectTriggerLabel(patientUserId, patients) {
-  if (!patientUserId) return null
-  const p = patients.find((x) => String(x.userId) === String(patientUserId))
-  return p ? `${p.name} (${p.email})` : `User id ${patientUserId}`
-}
-
 function initialPatientFromSession() {
   if (typeof sessionStorage === 'undefined') return ''
   return sessionStorage.getItem(PATIENT_KEY) || ''
@@ -183,17 +177,15 @@ export default function Cart() {
           <CardContent className="space-y-2">
             <Label htmlFor="patient">Patient</Label>
             <Select
-              value={patientUserId || undefined}
+              value={patientUserId ? String(patientUserId) : undefined}
               onValueChange={(v) => setPatientUserId(v)}
             >
               <SelectTrigger id="patient" className="max-w-md">
-                <SelectValue placeholder="Choose a patient…">
-                  {patientSelectTriggerLabel(patientUserId, patients)}
-                </SelectValue>
+                <SelectValue placeholder="Choose a patient…" />
               </SelectTrigger>
               <SelectContent>
                 {patients.map((p) => (
-                  <SelectItem key={p.userId} value={String(p.userId)}>
+                  <SelectItem key={p.userId} value={String(p.userId)} label={p.name}>
                     {p.name} ({p.email})
                   </SelectItem>
                 ))}

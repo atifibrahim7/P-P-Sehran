@@ -1,15 +1,15 @@
 const { Router } = require('express');
 const { ok, created, badRequest } = require('../../utils/response');
 const { authenticateToken, requireRole } = require('../../middleware/auth');
-const { createOrder, listOrdersForUser } = require('./service');
+const { createOrder, listOrdersPageForUser } = require('./service');
 const { loadOrderWithRelations, serializeOrder, serializeOrderItem } = require('../../lib/serialize');
 
 const router = Router();
 
 router.get('/', authenticateToken, async (req, res, next) => {
 	try {
-		const orders = await listOrdersForUser(req.user);
-		return ok(res, orders);
+		const result = await listOrdersPageForUser(req.user, req.query);
+		return ok(res, result);
 	} catch (e) {
 		return next(e);
 	}

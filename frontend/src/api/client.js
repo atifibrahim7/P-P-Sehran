@@ -165,7 +165,18 @@ export const checkoutCart = (payload) =>
   api('/carts/checkout', { method: 'POST', body: JSON.stringify(payload) })
 
 // Orders
-export const getOrders = () => api('/orders')
+export const getOrdersPage = (params = {}) => {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') search.set(key, String(value))
+  })
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return api(`/orders${suffix}`).then(asPaginated)
+}
+export const getOrders = (params = {}) => {
+  const merged = { page: 1, pageSize: 1000, ...params }
+  return getOrdersPage(merged).then((r) => r.items)
+}
 export const getOrder = (id) => api(`/orders/${id}`)
 export const createPractitionerSelfOrder = (items) =>
   api('/orders', { method: 'POST', body: JSON.stringify({ type: 'practitioner_self', items }) })

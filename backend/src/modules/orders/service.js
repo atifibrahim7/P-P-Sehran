@@ -1,5 +1,12 @@
 const prisma = require('../../config/prisma');
-const { serializeOrder, serializeOrderItem, orderInclude, loadOrderWithRelations } = require('../../lib/serialize');
+const { parsePagination, paginateResult } = require('../../utils/pagination');
+const {
+	serializeOrder,
+	serializeOrderItem,
+	orderInclude,
+	orderListInclude,
+	loadOrderWithRelations,
+} = require('../../lib/serialize');
 
 const ORDER_STATES = ['pending', 'paid', 'processing', 'completed'];
 
@@ -120,36 +127,86 @@ async function markPaid(orderId) {
 	return serializeOrder(full);
 }
 
-async function listOrdersForUser(user) {
-	const uid = Number(user.userId);
-	if (user.role === 'admin') {
-		const rows = await prisma.order.findMany({
-			include: orderInclude,
-			orderBy: { createdAt: 'desc' },
-		});
-		return rows.map(serializeOrder);
-	}
-	if (user.role === 'practitioner') {
-		const pr = await prisma.practitioner.findUnique({ where: { userId: uid } });
-		if (!pr) return [];
-		const rows = await prisma.order.findMany({
-			where: { practitionerId: pr.id },
-			include: orderInclude,
-			orderBy: { createdAt: 'desc' },
-		});
-		return rows.map(serializeOrder);
-	}
-	if (user.role === 'patient') {
-		const pt = await prisma.patient.findUnique({ where: { userId: uid } });
-		if (!pt) return [];
-		const rows = await prisma.order.findMany({
-			where: { patientId: pt.id },
-			include: orderInclude,
-			orderBy: { createdAt: 'desc' },
-		});
-		return rows.map(serializeOrder);
-	}
-	return [];
+function normalizeOrderTypeFilter(typeParam) {
+	if (typeParam == null || typeParam === '') return null;
+	const raw = String(typeParam).trim();
+	const upper = raw.toUpperCase();
+	if (upper === 'PATIENT' || upper === 'SELF') return upper;
+	const t = raw.toLowerCase();
+	if (t === 'patient' || t === 'patients') return 'PATIENT';
+	if (t === 'practitioner_self' || t === 'self') return 'SELF';
+	return null;
 }
 
-module.exports = { ORDER_STATES, createOrder, markPaid, listOrdersForUser };
+function stateToPrismaWhere(stateParam) {
+	if (stateParam == null || stateParam === '') return null;
+	const s = String(stateParam).toLowerCase();
+	if (s === 'completed') return { paymentStatus: 'PAID', status: 'COMPLETED' };
+	if (s === 'paid') return { paymentStatus: 'PAID', status: { not: 'COMPLETED' } };
+	if (s === 'processing') return { paymentStatus: { not: 'PAID' }, status: 'PROCESSING' };
+	if (s === 'pending') return { paymentStatus: { not: 'PAID' }, status: { not: 'PROCESSING' } };
+	return null;
+}
+
+async function listOrdersPageForUser(user, query = {}) {
+	const { page, pageSize } = parsePagination(query);
+	const typeFilter = normalizeOrderTypeFilter(query.type);
+	const stateWhere = stateToPrismaWhere(query.state);
+	const qRaw = query.q != null && query.q !== '' ? String(query.q).trim() : '';
+
+	const uid = Number(user.userId);
+	const clauses = [];
+
+	if (user.role === 'admin') {
+		// no scope clause
+	} else if (user.role === 'practitioner') {
+		const pr = await prisma.practitioner.findUnique({ where: { userId: uid } });
+		if (!pr) {
+			return paginateResult([], page, pageSize, 0);
+		}
+		clauses.push({ practitionerId: pr.id });
+	} else if (user.role === 'patient') {
+		const pt = await prisma.patient.findUnique({ where: { userId: uid } });
+		if (!pt) {
+			return paginateResult([], page, pageSize, 0);
+		}
+		clauses.push({ patientId: pt.id });
+	} else {
+		return paginateResult([], page, pageSize, 0);
+	}
+
+	if (typeFilter) {
+		clauses.push({ type: typeFilter });
+	}
+	if (stateWhere) {
+		clauses.push(stateWhere);
+	}
+	if (qRaw) {
+		if (/^\d+$/.test(qRaw)) {
+			clauses.push({ id: Number(qRaw) });
+		} else {
+			clauses.push({
+				OR: [
+					{ patient: { user: { name: { contains: qRaw } } } },
+					{ patient: { user: { email: { contains: qRaw } } } },
+				],
+			});
+		}
+	}
+
+	const where = clauses.length === 0 ? {} : clauses.length === 1 ? clauses[0] : { AND: clauses };
+
+	const total = await prisma.order.count({ where });
+	const skip = (page - 1) * pageSize;
+	const rows = await prisma.order.findMany({
+		where,
+		include: orderListInclude,
+		orderBy: { createdAt: 'desc' },
+		skip,
+		take: pageSize,
+	});
+	const items = rows.map(serializeOrder);
+	return paginateResult(items, page, pageSize, total);
+}
+
+module.exports = { ORDER_STATES, createOrder, markPaid, listOrdersPageForUser };
