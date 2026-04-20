@@ -17,7 +17,6 @@ import PractitionerCart from './pages/practitioner/Cart.jsx'
 import PractitionerOrders from './pages/practitioner/Orders.jsx'
 import PractitionerRecommendations from './pages/practitioner/Recommendations.jsx'
 import PractitionerTestResults from './pages/practitioner/TestResults.jsx'
-import PractitionerCommissions from './pages/practitioner/Commissions.jsx'
 import PractitionerPatients from './pages/practitioner/Patients.jsx'
 import PatientRecommendations from './pages/patient/Recommendations.jsx'
 import PatientCart from './pages/patient/Cart.jsx'
@@ -131,7 +130,10 @@ export default function App() {
           <Route path="/practitioner/orders" element={<PractitionerOrders />} />
           <Route path="/practitioner/recommendations" element={<PractitionerRecommendations />} />
           <Route path="/practitioner/test-results" element={<PractitionerTestResults />} />
-          <Route path="/practitioner/commissions" element={<PractitionerCommissions />} />
+          <Route
+            path="/practitioner/commissions"
+            element={<Navigate to="/practitioner/orders#practitioner-commissions" replace />}
+          />
         </Route>
         <Route element={<Protected roles={['patient']} />}>
           <Route path="/patient" element={<PatientDashboard />} />

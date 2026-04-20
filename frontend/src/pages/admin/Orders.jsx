@@ -50,7 +50,7 @@ export default function AdminOrders() {
       <Card className="border-border/80 shadow-none">
         <CardHeader>
           <CardTitle className="text-base">Orders ({orders.length})</CardTitle>
-          <CardDescription>Practitioner and patient user ids are shown for support.</CardDescription>
+          <CardDescription>Practitioner and patient names (from linked accounts).</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? (
@@ -94,8 +94,16 @@ export default function AdminOrders() {
                     <TableCell>{o.state}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatMoney(o.total_patient)}</TableCell>
                     <TableCell className="text-right tabular-nums">{formatMoney(o.total_practitioner)}</TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">{o.practitionerId ?? '—'}</TableCell>
-                    <TableCell className="text-muted-foreground tabular-nums">{o.patientId ?? '—'}</TableCell>
+                    <TableCell className="max-w-[140px]">
+                      <span className="line-clamp-2 text-sm font-medium text-foreground" title={o.practitionerName || ''}>
+                        {o.practitionerName ?? '—'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="max-w-[140px]">
+                      <span className="line-clamp-2 text-sm font-medium text-foreground" title={o.patientName || ''}>
+                        {o.patientName ?? '—'}
+                      </span>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

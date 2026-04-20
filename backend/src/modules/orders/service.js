@@ -189,6 +189,8 @@ async function listOrdersPageForUser(user, query = {}) {
 				OR: [
 					{ patient: { user: { name: { contains: qRaw } } } },
 					{ patient: { user: { email: { contains: qRaw } } } },
+					{ practitioner: { user: { name: { contains: qRaw } } } },
+					{ practitioner: { user: { email: { contains: qRaw } } } },
 				],
 			});
 		}

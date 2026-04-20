@@ -65,7 +65,7 @@ function buildSpec() {
 					properties: {
 						id: { type: 'string', format: 'uuid' },
 						name: { type: 'string' },
-						type: { type: 'string', enum: ['lab', 'supplement'] }
+						type: { type: 'string', enum: ['lab', 'supplement', 'both'] }
 					},
 					required: ['id', 'name', 'type']
 				},
@@ -76,6 +76,7 @@ function buildSpec() {
 						name: { type: 'string' },
 						category: { type: 'string', enum: ['blood_test', 'supplement'] },
 						vendorId: { type: 'string', format: 'uuid' },
+						vendorName: { type: ['string', 'null'] },
 						patient_price: { type: 'number' },
 						practitioner_price: { type: 'number' }
 					},
@@ -87,7 +88,11 @@ function buildSpec() {
 						id: { type: 'string', format: 'uuid' },
 						type: { type: 'string', enum: ['practitioner_self', 'patient'] },
 						practitionerId: { type: 'string', format: 'uuid' },
+						practitionerName: { type: ['string', 'null'] },
+						practitionerEmail: { type: ['string', 'null'] },
 						patientId: { type: ['string', 'null'], format: 'uuid' },
+						patientName: { type: ['string', 'null'] },
+						patientEmail: { type: ['string', 'null'] },
 						state: { type: 'string', enum: ['pending', 'paid', 'processing', 'completed'] },
 						total_patient: { type: 'number' },
 						total_practitioner: { type: 'number' },

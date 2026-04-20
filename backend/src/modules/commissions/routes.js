@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const { ok, badRequest } = require('../../utils/response');
 const { authenticateToken, requireRole } = require('../../middleware/auth');
+const { parsePagination, paginateResult } = require('../../utils/pagination');
 const prisma = require('../../config/prisma');
 const { serializeCommissionListItem } = require('../../lib/serialize');
 
@@ -44,6 +45,38 @@ function aggregateByPractitioner(rows) {
 	return Array.from(byPractitioner.values());
 }
 
+function normalizePayoutStatusFilter(raw) {
+	if (raw == null || raw === '') return null;
+	const u = String(raw).toUpperCase();
+	if (u === 'PENDING' || u === 'PAID') return u;
+	return null;
+}
+
+function buildPractitionerCommissionListWhere(practitionerId, query) {
+	const clauses = [{ practitionerId }];
+	const payout = normalizePayoutStatusFilter(query.payoutStatus);
+	if (payout) {
+		clauses.push({ payoutStatus: payout });
+	}
+	const qRaw = query.q != null && query.q !== '' ? String(query.q).trim() : '';
+	if (qRaw) {
+		if (/^\d+$/.test(qRaw)) {
+			clauses.push({ orderId: Number(qRaw) });
+		} else {
+			clauses.push({
+				order: {
+					patient: {
+						user: {
+							OR: [{ name: { contains: qRaw } }, { email: { contains: qRaw } }],
+						},
+					},
+				},
+			});
+		}
+	}
+	return clauses.length === 1 ? clauses[0] : { AND: clauses };
+}
+
 router.get('/', authenticateToken, async (req, res) => {
 	if (req.user.role === 'admin') {
 		const rows = await prisma.commission.findMany({
@@ -70,16 +103,46 @@ router.get('/', authenticateToken, async (req, res) => {
 		});
 	}
 	if (req.user.role === 'practitioner') {
+		const { page, pageSize } = parsePagination(req.query);
 		const pr = await prisma.practitioner.findUnique({
 			where: { userId: Number(req.user.userId) },
 		});
-		if (!pr) return ok(res, []);
-		const rows = await prisma.commission.findMany({
-			where: { practitionerId: pr.id },
-			include: commissionInclude,
-			orderBy: { id: 'desc' },
-		});
-		return ok(res, rows.map(serializeCommissionListItem));
+		const baseWhere = pr ? { practitionerId: pr.id } : { practitionerId: -1 };
+		const listWhere = pr ? buildPractitionerCommissionListWhere(pr.id, req.query) : baseWhere;
+
+		const [total, rows, pendingAgg, paidAgg, pendingLineCount] = await Promise.all([
+			prisma.commission.count({ where: listWhere }),
+			prisma.commission.findMany({
+				where: listWhere,
+				include: commissionInclude,
+				orderBy: { id: 'desc' },
+				skip: (page - 1) * pageSize,
+				take: pageSize,
+			}),
+			prisma.commission.aggregate({
+				where: { ...baseWhere, payoutStatus: 'PENDING' },
+				_sum: { amount: true },
+			}),
+			prisma.commission.aggregate({
+				where: { ...baseWhere, payoutStatus: 'PAID' },
+				_sum: { amount: true },
+			}),
+			prisma.commission.count({ where: { ...baseWhere, payoutStatus: 'PENDING' } }),
+		]);
+
+		const pendingPayoutTotal = Number(pendingAgg._sum.amount ?? 0);
+		const paidOutTotal = Number(paidAgg._sum.amount ?? 0);
+
+		return ok(
+			res,
+			Object.assign(paginateResult(rows.map(serializeCommissionListItem), page, pageSize, total), {
+				summary: {
+					pendingPayoutTotal,
+					paidOutTotal,
+					pendingLineCount,
+				},
+			}),
+		);
 	}
 	return res.status(403).json({ success: false, error: { message: 'Forbidden' } });
 });

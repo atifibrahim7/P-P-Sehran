@@ -32,6 +32,8 @@ function emptyForm() {
     patient_price: '',
     practitioner_price: '',
     imageLink: '',
+    vendorId: '',
+    vendorLabel: '',
   }
 }
 
@@ -47,25 +49,45 @@ export default function ProductManagement({ category }) {
   const isEdit = Boolean(editingId)
   const title = category === 'supplement' ? 'Admin · Supplements' : 'Admin · Lab Tests'
   const categoryLabel = category === 'supplement' ? 'supplements' : 'lab tests'
+  const vendorListType = category === 'supplement' ? 'supplement' : 'lab'
+
+  const selectVendors = useMemo(() => {
+    const vid = form.vendorId != null && form.vendorId !== '' ? String(form.vendorId) : ''
+    if (!vid) return vendors
+    if (vendors.some((v) => String(v.id) === vid)) return vendors
+    const label = form.vendorLabel || `Vendor #${vid}`
+    const nid = Number(vid)
+    return [...vendors, { id: Number.isFinite(nid) ? nid : vid, name: label }]
+  }, [vendors, form.vendorId, form.vendorLabel])
+
+  const selectedVendorDisplay = useMemo(() => {
+    if (!form.vendorId) return null
+    const id = String(form.vendorId)
+    return selectVendors.find((v) => String(v.id) === id)?.name ?? form.vendorLabel ?? null
+  }, [form.vendorId, form.vendorLabel, selectVendors])
 
   const isValid = useMemo(() => {
     const pp = Number(form.patient_price)
     const pr = Number(form.practitioner_price)
-    return Boolean(
+    const base =
       form.name.trim() &&
-        form.patient_price !== '' &&
-        form.practitioner_price !== '' &&
-        !Number.isNaN(pp) &&
-        !Number.isNaN(pr) &&
-        pp >= 0 &&
-        pr >= 0,
-    )
-  }, [form])
+      form.patient_price !== '' &&
+      form.practitioner_price !== '' &&
+      !Number.isNaN(pp) &&
+      !Number.isNaN(pr) &&
+      pp >= 0 &&
+      pr >= 0
+    const vendorOk = vendors.length === 0 || Boolean(String(form.vendorId || '').trim())
+    return Boolean(base && vendorOk)
+  }, [form, vendors.length])
 
   const load = async () => {
     setLoading(true)
     try {
-      const [vs, ps] = await Promise.all([getVendors(), getProductsPage({ type: category, page: pagination.page, pageSize: pagination.pageSize })])
+      const [vs, ps] = await Promise.all([
+        getVendors({ type: vendorListType }),
+        getProductsPage({ type: category, page: pagination.page, pageSize: pagination.pageSize }),
+      ])
       setVendors(vs)
       setProducts(ps.items || [])
       setPagination(ps.pagination)
@@ -79,7 +101,7 @@ export default function ProductManagement({ category }) {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, pagination.page, pagination.pageSize])
+  }, [category, pagination.page, pagination.pageSize, vendorListType])
 
   const resetForm = () => {
     setEditingId(null)
@@ -97,6 +119,9 @@ export default function ProductManagement({ category }) {
       patient_price: Number(form.patient_price),
       practitioner_price: Number(form.practitioner_price),
       imageLink: form.imageLink.trim() || null,
+    }
+    if (form.vendorId !== '' && form.vendorId != null) {
+      payload.vendorId = Number(form.vendorId)
     }
     try {
       if (isEdit) {
@@ -123,6 +148,11 @@ export default function ProductManagement({ category }) {
           ? String(product.practitioner_price)
           : String(product.price ?? ''),
       imageLink: product.imageLink || '',
+      vendorId: product.vendorId != null ? String(product.vendorId) : '',
+      vendorLabel:
+        product.vendorName ??
+        vendors.find((v) => Number(v.id) === Number(product.vendorId))?.name ??
+        '',
     })
     setDialogOpen(true)
   }
@@ -145,7 +175,8 @@ export default function ProductManagement({ category }) {
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Browse and manage {categoryLabel}. Set patient and practitioner prices — commission on patient-paid orders uses
-            the difference (patient minus practitioner). Vendor is picked automatically (lab vs supplement).
+            the difference (patient minus practitioner). Assign a vendor that supplies this category (including “both”
+            vendors).
           </p>
         </div>
         <Button
@@ -154,7 +185,11 @@ export default function ProductManagement({ category }) {
           className="shrink-0"
           onClick={() => {
             setEditingId(null)
-            setForm(emptyForm())
+            setForm({
+              ...emptyForm(),
+              vendorId: vendors.length === 1 ? String(vendors[0].id) : '',
+              vendorLabel: vendors.length === 1 ? vendors[0].name : '',
+            })
             setDialogOpen(true)
           }}
         >
@@ -187,7 +222,11 @@ export default function ProductManagement({ category }) {
               className="mt-2"
               onClick={() => {
                 setEditingId(null)
-                setForm(emptyForm())
+                setForm({
+                  ...emptyForm(),
+                  vendorId: vendors.length === 1 ? String(vendors[0].id) : '',
+                  vendorLabel: vendors.length === 1 ? vendors[0].name : '',
+                })
                 setDialogOpen(true)
               }}
             >
@@ -198,7 +237,10 @@ export default function ProductManagement({ category }) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((p) => {
-            const vendorName = vendors.find((v) => v.id === p.vendorId)?.name || p.vendorId
+            const vendorName =
+              p.vendorName ??
+              vendors.find((v) => Number(v.id) === Number(p.vendorId))?.name ??
+              (p.vendorId != null ? `Vendor #${p.vendorId}` : '—')
             const pp = Number(p.patient_price ?? p.price ?? 0).toFixed(2)
             const pr = Number(p.practitioner_price ?? p.price ?? 0).toFixed(2)
             return (
@@ -330,6 +372,38 @@ export default function ProductManagement({ category }) {
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea id="description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} />
+            </div>
+            <div className="space-y-2">
+              <Label>Vendor</Label>
+              {vendors.length === 0 && !form.vendorId ? (
+                <p className="text-xs text-muted-foreground">
+                  No vendor supplies this category yet. Create one under Admin · Vendors (choose Lab, Supplement, or
+                  both). You can still save; the server will attach a default vendor if one exists.
+                </p>
+              ) : (
+                <Select
+                  value={form.vendorId ? String(form.vendorId) : undefined}
+                  onValueChange={(v) => {
+                    const picked = vendors.find((x) => String(x.id) === v) ?? selectVendors.find((x) => String(x.id) === v)
+                    setForm((f) => ({
+                      ...f,
+                      vendorId: v,
+                      vendorLabel: picked?.name ?? f.vendorLabel,
+                    }))
+                  }}
+                >
+                  <SelectTrigger className="w-full min-w-0">
+                    <SelectValue placeholder="Select vendor">{selectedVendorDisplay}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectVendors.map((v) => (
+                      <SelectItem key={String(v.id)} value={String(v.id)}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">

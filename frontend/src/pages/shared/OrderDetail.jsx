@@ -114,6 +114,8 @@ export default function OrderDetail() {
         <CardContent className="space-y-1 pt-6 text-sm">
           {!isPatientViewer ? <p>Type: {order.type}</p> : null}
           <p>State: {order.state}</p>
+          {order.practitionerName ? <p>Practitioner: {order.practitionerName}</p> : null}
+          {!isPatientViewer && order.patientName ? <p>Patient: {order.patientName}</p> : null}
           {isPatientViewer ? (
             <p className="font-medium tabular-nums">Your total: ${Number(order.total_patient).toFixed(2)}</p>
           ) : (

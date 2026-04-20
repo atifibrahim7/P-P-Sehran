@@ -32,11 +32,18 @@ function dbCategoryToVendorType(dbCat) {
 	return null;
 }
 
+function vendorCanSupplyCategory(vendor, dbCat) {
+	if (!vendor) return false;
+	if (dbCat === 'BLOOD_TEST') return vendor.type === 'LAB' || vendor.type === 'BOTH';
+	if (dbCat === 'SUPPLEMENT') return vendor.type === 'SUPPLEMENT' || vendor.type === 'BOTH';
+	return false;
+}
+
 async function resolveVendorIdForCategory(dbCat) {
 	const vType = dbCategoryToVendorType(dbCat);
 	if (!vType) return null;
 	const vendor = await prisma.vendor.findFirst({
-		where: { type: vType },
+		where: { OR: [{ type: vType }, { type: 'BOTH' }] },
 		orderBy: { id: 'asc' },
 	});
 	return vendor?.id ?? null;
@@ -90,6 +97,7 @@ function withComputedFields(product) {
 		patient_price: Number(product.patientPrice ?? price),
 		practitioner_price: Number(product.practitionerPrice ?? price),
 		vendorId: product.vendorId,
+		vendorName: product.vendor?.name ?? null,
 		imageLink: product.imageUrl || defaultImageLink(normalizedCategory),
 		imageUrl: product.imageUrl,
 	};
@@ -117,6 +125,7 @@ router.get('/', authenticateToken, async (req, res) => {
 	const skip = (page - 1) * pageSize;
 	const rows = await prisma.product.findMany({
 		where,
+		include: { vendor: true },
 		orderBy: { id: 'asc' },
 		skip,
 		take: pageSize,
@@ -146,8 +155,8 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 	if (vendorId) {
 		const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
 		if (!vendor) return badRequest(res, 'Invalid vendorId');
-		if (vendor.type !== expectedVendorType) {
-			return badRequest(res, 'Vendor type must match product category (lab vs supplement)');
+		if (!vendorCanSupplyCategory(vendor, dbCat)) {
+			return badRequest(res, 'Vendor cannot supply this product category (lab vs supplement)');
 		}
 	} else {
 		vendorId = await resolveVendorIdForCategory(dbCat);
@@ -170,6 +179,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 			practitionerPrice: prices.practitionerPrice,
 			imageUrl: imageLink || null,
 		},
+		include: { vendor: true },
 	});
 
 	return created(res, withComputedFields(product));
@@ -195,9 +205,8 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 	if (req.body?.vendorId != null) {
 		const vendor = await prisma.vendor.findUnique({ where: { id: Number(req.body.vendorId) } });
 		if (!vendor) return badRequest(res, 'Invalid vendorId');
-		const expectedVendorType = dbCategoryToVendorType(dbCat);
-		if (vendor.type !== expectedVendorType) {
-			return badRequest(res, 'Vendor type must match product category');
+		if (!vendorCanSupplyCategory(vendor, dbCat)) {
+			return badRequest(res, 'Vendor cannot supply this product category');
 		}
 		data.vendorId = Number(req.body.vendorId);
 	} else if (categoryChanged) {
@@ -237,6 +246,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 	const product = await prisma.product.update({
 		where: { id },
 		data,
+		include: { vendor: true },
 	});
 	return ok(res, withComputedFields(product));
 });

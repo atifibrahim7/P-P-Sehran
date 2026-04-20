@@ -89,7 +89,15 @@ export const getProductsPage = (params = {}) => {
   const suffix = search.toString() ? `?${search.toString()}` : ''
   return api(`/products${suffix}`).then(asPaginated)
 }
-export const getVendors = () => api('/vendors?page=1&pageSize=1000').then((result) => asPaginated(result).items)
+export const getVendors = (params = {}) => {
+  const search = new URLSearchParams()
+  const merged = { page: 1, pageSize: 1000, ...params }
+  Object.entries(merged).forEach(([key, value]) => {
+    if (value != null && value !== '') search.set(key, String(value))
+  })
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return api(`/vendors${suffix}`).then((result) => asPaginated(result).items)
+}
 export const getVendorsPage = (params = {}) => {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -112,6 +120,16 @@ export const deleteProduct = (id) => api(`/products/${id}`, { method: 'DELETE' }
 
 export const patchCommissionPayout = (id, payoutStatus) =>
   api(`/commissions/${id}`, { method: 'PATCH', body: JSON.stringify({ payoutStatus }) })
+
+/** Practitioner: paginated list + global summary. Admin: use api('/commissions') for full payload. */
+export const getCommissionsPage = (params = {}) => {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') search.set(key, String(value))
+  })
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return api(`/commissions${suffix}`)
+}
 
 /**
  * Upload a product image (admin). Sends multipart field "file".

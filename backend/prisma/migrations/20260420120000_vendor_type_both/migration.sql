@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `Vendor` MODIFY `type` ENUM('LAB', 'SUPPLEMENT', 'BOTH') NOT NULL;

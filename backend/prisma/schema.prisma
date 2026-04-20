@@ -169,6 +169,7 @@ enum Role {
 enum VendorType {
   LAB
   SUPPLEMENT
+  BOTH
 }
 
 enum ProductCategory {

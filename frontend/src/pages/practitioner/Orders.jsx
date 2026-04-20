@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { getOrder, getOrdersPage } from '../../api/client'
+import { useLocation } from 'react-router-dom'
+import { getCommissionsPage, getOrder, getOrdersPage } from '../../api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils'
 import { Eye } from 'lucide-react'
 
+const COMMISSIONS_ANCHOR_ID = 'practitioner-commissions'
+
 const PAGE_SIZE = 10
 const STATE_OPTIONS = [
   { value: 'all', label: 'All states' },
@@ -27,6 +29,12 @@ const STATE_OPTIONS = [
   { value: 'processing', label: 'Processing' },
   { value: 'paid', label: 'Paid' },
   { value: 'completed', label: 'Completed' },
+]
+
+const COMMISSION_PAYOUT_OPTIONS = [
+  { value: 'all', label: 'All payouts' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'PAID', label: 'Paid' },
 ]
 
 function formatMoney(n) {
@@ -54,6 +62,26 @@ function typeLabel(t) {
 }
 
 export default function PractitionerOrders() {
+  const location = useLocation()
+  const [commissionPage, setCommissionPage] = useState(1)
+  const [commissionQ, setCommissionQ] = useState('')
+  const [commissionDebouncedQ, setCommissionDebouncedQ] = useState('')
+  const [commissionPayoutFilter, setCommissionPayoutFilter] = useState('all')
+  const [commissionItems, setCommissionItems] = useState([])
+  const [commissionPagination, setCommissionPagination] = useState({
+    page: 1,
+    pageSize: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  })
+  const [commissionSummary, setCommissionSummary] = useState({
+    pendingPayoutTotal: 0,
+    paidOutTotal: 0,
+    pendingLineCount: 0,
+  })
+  const [commissionLoading, setCommissionLoading] = useState(true)
+  const [commissionError, setCommissionError] = useState(null)
+
   const [tab, setTab] = useState('all')
   const [page, setPage] = useState(1)
   const [stateFilter, setStateFilter] = useState('all')
@@ -74,6 +102,51 @@ export default function PractitionerOrders() {
     const t = setTimeout(() => setDebouncedQ(q.trim()), 350)
     return () => clearTimeout(t)
   }, [q])
+
+  useEffect(() => {
+    const t = setTimeout(() => setCommissionDebouncedQ(commissionQ.trim()), 350)
+    return () => clearTimeout(t)
+  }, [commissionQ])
+
+  useEffect(() => {
+    setCommissionPage(1)
+  }, [commissionDebouncedQ, commissionPayoutFilter])
+
+  const loadCommissions = useCallback(async () => {
+    try {
+      setCommissionLoading(true)
+      setCommissionError(null)
+      const params = {
+        page: commissionPage,
+        pageSize: PAGE_SIZE,
+        ...(commissionDebouncedQ ? { q: commissionDebouncedQ } : {}),
+        ...(commissionPayoutFilter !== 'all' ? { payoutStatus: commissionPayoutFilter } : {}),
+      }
+      const data = await getCommissionsPage(params)
+      setCommissionItems(data.items || [])
+      setCommissionPagination(
+        data.pagination || { page: 1, pageSize: PAGE_SIZE, total: 0, totalPages: 1 },
+      )
+      setCommissionSummary(
+        data.summary || { pendingPayoutTotal: 0, paidOutTotal: 0, pendingLineCount: 0 },
+      )
+    } catch (e) {
+      setCommissionError(e)
+      setCommissionItems([])
+    } finally {
+      setCommissionLoading(false)
+    }
+  }, [commissionPage, commissionDebouncedQ, commissionPayoutFilter])
+
+  useEffect(() => {
+    loadCommissions()
+  }, [loadCommissions])
+
+  useEffect(() => {
+    if (location.hash !== `#${COMMISSIONS_ANCHOR_ID}`) return
+    const el = document.getElementById(COMMISSIONS_ANCHOR_ID)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [location.hash])
 
   const typeParam = useMemo(() => {
     if (tab === 'patient') return 'patient'
@@ -148,13 +221,266 @@ export default function PractitionerOrders() {
   }
 
   const { page: curPage, totalPages, total } = pagination
+  const {
+    page: comPage,
+    totalPages: comTotalPages,
+    total: comTotal,
+  } = commissionPagination
+  const commissionFilterActive =
+    Boolean(commissionDebouncedQ) || commissionPayoutFilter !== 'all'
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Patient and self orders, search, and quick preview.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Commission summary and history from paid patient orders; then patient and self orders, search, and preview.
+        </p>
       </div>
+
+      <div id={COMMISSIONS_ANCHOR_ID} className="scroll-mt-6 space-y-4">
+        <h2 className="text-sm font-medium text-muted-foreground">Commission</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Card className="border-border/80 bg-gradient-to-br from-card to-muted/30 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending from admin</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                {commissionLoading ? '—' : formatMoney(commissionSummary.pendingPayoutTotal)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-border/80 bg-gradient-to-br from-card to-muted/30 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Marked paid</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                {commissionLoading ? '—' : formatMoney(commissionSummary.paidOutTotal)}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {commissionError ? (
+          <Alert variant="destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{commissionError.message}</AlertDescription>
+          </Alert>
+        ) : null}
+
+        <Card className="border-border/80 shadow-sm">
+          <CardHeader className="space-y-4 border-b pb-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <CardTitle className="text-base font-medium">Commission history</CardTitle>
+                <CardDescription className="mt-1">
+                  Patient, products sold, and your commission per order.
+                </CardDescription>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {comTotal === 1 ? '1 line' : `${comTotal} lines`}
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="space-y-1.5">
+                  <Label htmlFor="commission-search" className="text-xs text-muted-foreground">
+                    Search
+                  </Label>
+                  <Input
+                    id="commission-search"
+                    placeholder="Order # or patient name…"
+                    value={commissionQ}
+                    onChange={(e) => setCommissionQ(e.target.value)}
+                    className="w-full sm:w-56"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Payout</Label>
+                  <Select
+                    value={commissionPayoutFilter}
+                    onValueChange={(v) => {
+                      setCommissionPayoutFilter(v)
+                      setCommissionPage(1)
+                    }}
+                  >
+                    <SelectTrigger className="w-full sm:w-44">
+                      <SelectValue placeholder="Payout" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMMISSION_PAYOUT_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {commissionLoading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : !commissionItems.length ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                {commissionFilterActive
+                  ? 'No commissions match your filters.'
+                  : 'No commissions yet. Paid patient orders will appear here.'}
+              </p>
+            ) : (
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b hover:bg-transparent">
+                        <TableHead className="font-medium">Patient</TableHead>
+                        <TableHead className="min-w-[200px] font-medium">Products</TableHead>
+                        <TableHead className="font-medium">Order</TableHead>
+                        <TableHead className="text-right font-medium">Commission</TableHead>
+                        <TableHead className="font-medium">Payout</TableHead>
+                        <TableHead className="w-14 text-right font-medium"> </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {commissionItems.map((r) => (
+                        <TableRow
+                          key={r.id}
+                          className="group border-border/60 [&>td]:py-3 [&>td]:transition-colors [&:hover>td]:bg-muted/50"
+                        >
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium leading-tight">{r.patientName || '—'}</span>
+                              {r.patientEmail ? (
+                                <span className="text-xs text-muted-foreground">{r.patientEmail}</span>
+                              ) : null}
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[min(24rem,40vw)] text-sm leading-snug text-muted-foreground">
+                            {r.productsSummary}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium tabular-nums text-foreground">#{r.orderId}</span>
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {formatDate(r.orderCreatedAt)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right text-base tabular-nums font-semibold text-foreground">
+                            {formatMoney(r.amount)}
+                          </TableCell>
+                          <TableCell>
+                            {r.payoutStatus === 'PAID' ? (
+                              <Badge className="font-normal shadow-none" variant="secondary">
+                                Paid
+                              </Badge>
+                            ) : (
+                              <Badge className="font-normal shadow-none" variant="outline">
+                                Pending
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              className="h-8 w-8 opacity-70 transition-opacity group-hover:opacity-100"
+                              title="View order"
+                              aria-label={`View order ${r.orderId}`}
+                              onClick={() => openDetail(r.orderId)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="space-y-3 md:hidden">
+                  {commissionItems.map((r) => (
+                    <div
+                      key={r.id}
+                      className="rounded-xl border border-border/80 bg-card/50 p-4 shadow-sm transition-colors hover:bg-muted/30"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="font-medium leading-tight">{r.patientName || '—'}</p>
+                          {r.patientEmail ? (
+                            <p className="text-xs text-muted-foreground">{r.patientEmail}</p>
+                          ) : null}
+                          <p className="text-xs tabular-nums text-muted-foreground">
+                            Order #{r.orderId} · {formatDate(r.orderCreatedAt)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <span className="text-lg font-semibold tabular-nums">{formatMoney(r.amount)}</span>
+                          {r.payoutStatus === 'PAID' ? (
+                            <Badge className="font-normal" variant="secondary">
+                              Paid
+                            </Badge>
+                          ) : (
+                            <Badge className="font-normal" variant="outline">
+                              Pending
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground">{r.productsSummary}</p>
+                      <div className="mt-3 flex justify-end border-t border-border/60 pt-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => openDetail(r.orderId)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          Details
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {!commissionLoading && comTotal > 0 ? (
+                  <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t pt-4 text-sm sm:flex-row">
+                    <p className="text-muted-foreground">
+                      Page {comPage} of {comTotalPages}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={comPage <= 1}
+                        onClick={() => setCommissionPage((p) => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={comPage >= comTotalPages}
+                        onClick={() => setCommissionPage((p) => p + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-6">
+        <h2 className="text-sm font-medium text-muted-foreground">Orders</h2>
 
       {error ? (
         <Alert variant="destructive">
@@ -342,7 +668,7 @@ export default function PractitionerOrders() {
         <DialogContent className="max-h-[min(90vh,640px)] overflow-y-auto sm:max-w-lg" showCloseButton>
           <DialogHeader>
             <DialogTitle>{detailId != null ? `Order #${detailId}` : 'Order'}</DialogTitle>
-            <DialogDescription>Line items and totals. Use the link below to open checkout on the full page.</DialogDescription>
+            <DialogDescription>Line items and totals for this order.</DialogDescription>
           </DialogHeader>
           {detailLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
@@ -394,22 +720,14 @@ export default function PractitionerOrders() {
               </div>
             </div>
           ) : null}
-          <DialogFooter className="gap-2 sm:justify-between">
-            {detailId != null ? (
-              <Button type="button" variant="outline" asChild>
-                <Link to={`/orders/${detailId}`}>Open full page</Link>
-              </Button>
-            ) : (
-              <Button type="button" variant="outline" disabled>
-                Open full page
-              </Button>
-            )}
+          <DialogFooter className="sm:justify-end">
             <Button type="button" variant="secondary" onClick={() => onDialogOpenChange(false)}>
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   )
 }
