@@ -22,18 +22,19 @@ export default function PractitionerDashboard() {
         const [orders, results, patients] = await Promise.all([
           getOrders(),
           api('/lab/results'),
-          getPractitionerPatients().catch(() => []),
+          getPractitionerPatients({ page: 1, limit: 1 }).catch(() => ({ total: 0 })),
         ])
         if (!mounted) return
         const orderList = Array.isArray(orders) ? orders : []
         const cart = JSON.parse(localStorage.getItem('cart_items') || '[]')
         const pending = orderList.filter((o) => String(o.state).toLowerCase() !== 'paid').length
+        const patientTotal = typeof patients?.total === 'number' ? patients.total : 0
         setData({
           orders: orderList.length,
           pendingOrders: pending,
           results: Array.isArray(results) ? results.length : 0,
           cartItems: Array.isArray(cart) ? cart.length : 0,
-          patientAccounts: Array.isArray(patients) ? patients.length : 0,
+          patientAccounts: patientTotal,
         })
       } catch (e) {
         if (mounted) setError(e)
@@ -55,7 +56,7 @@ export default function PractitionerDashboard() {
       {
         title: 'Patients',
         value: loading ? '—' : data.patientAccounts ?? '—',
-        subtitle: 'Accounts in the system',
+        subtitle: 'Linked to your practice',
         icon: Users,
         colorKey: 'primary',
       },

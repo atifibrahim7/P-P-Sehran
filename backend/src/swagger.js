@@ -17,7 +17,8 @@ function buildSpec() {
 			{ name: 'Orders', description: 'Orders, order items, order state' },
 			{ name: 'Payments', description: 'Stripe checkout and webhooks' },
 			{ name: 'Commissions', description: 'Practitioner commissions' },
-			{ name: 'Lab', description: 'Lab integration and test results' }
+			{ name: 'Lab', description: 'Lab integration and test results' },
+			{ name: 'Patients', description: 'Practitioner patient roster and registration' }
 		],
 		components: {
 			securitySchemes: {
@@ -181,6 +182,47 @@ function buildSpec() {
 					type: 'object',
 					properties: { state: { type: 'string', enum: ['pending', 'paid', 'processing', 'completed'] } },
 					required: ['state']
+				},
+				PractitionerPatientRow: {
+					type: 'object',
+					properties: {
+						patientId: { type: 'integer' },
+						userId: { type: 'integer' },
+						name: { type: 'string' },
+						email: { type: 'string' },
+						primaryPractitionerName: { type: ['string', 'null'] }
+					},
+					required: ['patientId', 'userId', 'name', 'email']
+				},
+				PractitionerPatientList: {
+					type: 'object',
+					properties: {
+						items: { type: 'array', items: { $ref: '#/components/schemas/PractitionerPatientRow' } },
+						total: { type: 'integer' },
+						page: { type: 'integer' },
+						limit: { type: 'integer' }
+					},
+					required: ['items', 'total', 'page', 'limit']
+				},
+				CreatePractitionerPatientRequest: {
+					type: 'object',
+					properties: {
+						name: { type: 'string' },
+						email: { type: 'string' },
+						password: { type: 'string', description: 'Optional; auto-generated if omitted' }
+					},
+					required: ['name', 'email']
+				},
+				CreatePractitionerPatientResponse: {
+					type: 'object',
+					properties: {
+						userId: { type: 'integer' },
+						patientId: { type: 'integer' },
+						email: { type: 'string' },
+						name: { type: 'string' },
+						emailSent: { type: 'boolean' }
+					},
+					required: ['userId', 'patientId', 'email', 'name', 'emailSent']
 				}
 			}
 		},
@@ -237,6 +279,27 @@ function buildSpec() {
 					summary: 'List users (admin)',
 					parameters: [{ in: 'query', name: 'role', schema: { $ref: '#/components/schemas/Role' } }],
 					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/patients': {
+				get: {
+					tags: ['Patients'],
+					summary: 'List patients linked to this practitioner (paginated, searchable)',
+					parameters: [
+						{ in: 'query', name: 'q', schema: { type: 'string' } },
+						{ in: 'query', name: 'page', schema: { type: 'integer', minimum: 1, default: 1 } },
+						{ in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }
+					],
+					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } }
+				},
+				post: {
+					tags: ['Patients'],
+					summary: 'Register a patient under this practitioner',
+					requestBody: {
+						required: true,
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatePractitionerPatientRequest' } } }
+					},
+					responses: { '201': { description: 'Created' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
 				}
 			},
 			'/vendors': {

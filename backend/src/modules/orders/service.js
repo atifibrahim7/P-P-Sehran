@@ -1,5 +1,6 @@
 const prisma = require('../../config/prisma');
 const { parsePagination, paginateResult } = require('../../utils/pagination');
+const { parsePositiveInt } = require('../../utils/quantity');
 const {
 	serializeOrder,
 	serializeOrderItem,
@@ -81,7 +82,12 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 	for (const it of items) {
 		const product = await prisma.product.findUnique({ where: { id: Number(it.productId) } });
 		if (!product) throw Object.assign(new Error('Invalid product in items'), { status: 400 });
-		const quantity = it.quantity && it.quantity > 0 ? Number(it.quantity) : 1;
+		let quantity;
+		try {
+			quantity = parsePositiveInt(it.quantity, 1);
+		} catch (e) {
+			throw Object.assign(new Error(e.message || 'Invalid quantity'), { status: 400 });
+		}
 		const pp = Number(product.patientPrice);
 		const pr = Number(product.practitionerPrice);
 		totalPatient += pp * quantity;
@@ -134,7 +140,12 @@ async function markPaid(orderId) {
 		let totalPatient = 0;
 		let totalPractitioner = 0;
 		for (const it of order.items) {
-			const q = it.quantity ?? 1;
+			let q;
+			try {
+				q = parsePositiveInt(it.quantity, 1);
+			} catch {
+				q = 1;
+			}
 			totalPatient += Number(it.patientPrice) * q;
 			totalPractitioner += Number(it.practitionerPrice) * q;
 		}

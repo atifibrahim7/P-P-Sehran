@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { parsePositiveWhole } from '@/lib/quantity'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 function lineTotalPatient(it) {
@@ -36,8 +37,10 @@ export default function PractitionerCartDrawer() {
   }, [drawerOpen, refresh])
 
   const setQty = async (itemId, quantity) => {
+    const w = parsePositiveWhole(String(quantity))
+    if (w == null) return
     try {
-      await updateCartItem(itemId, quantity)
+      await updateCartItem(itemId, w)
       notifyPractitionerCartChanged()
     } catch (e) {
       setCheckoutError(e)
@@ -155,9 +158,14 @@ export default function PractitionerCartDrawer() {
                         <input
                           type="number"
                           min={1}
+                          step={1}
+                          inputMode="numeric"
                           className="w-16 rounded border border-input bg-background px-2 py-1"
                           value={it.quantity}
-                          onChange={(e) => setQty(it.id, Math.max(1, Number(e.target.value) || 1))}
+                          onChange={(e) => {
+                            const w = parsePositiveWhole(e.target.value)
+                            if (w != null) void setQty(it.id, w)
+                          }}
                         />
                       </label>
                     </li>
@@ -214,9 +222,14 @@ export default function PractitionerCartDrawer() {
                               <input
                                 type="number"
                                 min={1}
+                                step={1}
+                                inputMode="numeric"
                                 className="w-16 rounded border border-input bg-background px-2 py-1"
                                 value={it.quantity}
-                                onChange={(e) => setQty(it.id, Math.max(1, Number(e.target.value) || 1))}
+                                onChange={(e) => {
+                                  const w = parsePositiveWhole(e.target.value)
+                                  if (w != null) void setQty(it.id, w)
+                                }}
                               />
                             </label>
                           </li>

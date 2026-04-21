@@ -6,6 +6,9 @@ import { getCartSummary } from '../api/client'
 /** Session key — optional hint when opening “order for patient” from the directory. */
 export const PRACTITIONER_PATIENT_USER_KEY = 'pp_selected_patient_user_id'
 
+/** JSON `{ userId, name, email }` so add-to-cart can show the label before the roster loads. */
+export const PRACTITIONER_PATIENT_HINT_KEY = 'pp_selected_patient_hint'
+
 const defaultValue = {
   totalQty: 0,
   selfQty: 0,

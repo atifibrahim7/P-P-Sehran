@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { parsePositiveWhole } from '@/lib/quantity'
 
 function money(n) {
   const x = Number(n)
@@ -38,7 +39,7 @@ export default function PatientAddToCartDialog({ open, onOpenChange, product }) 
   }, [open, product])
 
   const pp = Number(product?.patient_price ?? product?.price ?? 0)
-  const qty = Math.max(1, Number(quantity) || 1)
+  const qty = Math.max(1, parsePositiveWhole(String(quantity)) ?? 1)
 
   const preview = useMemo(
     () => ({
@@ -157,8 +158,12 @@ export default function PatientAddToCartDialog({ open, onOpenChange, product }) 
                 type="number"
                 min={1}
                 step={1}
+                inputMode="numeric"
                 value={quantity}
-                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) => {
+                  const w = parsePositiveWhole(e.target.value)
+                  if (w != null) setQuantity(w)
+                }}
               />
             </div>
 

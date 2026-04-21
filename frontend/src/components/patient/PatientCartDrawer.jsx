@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
+import { parsePositiveWhole } from '@/lib/quantity'
 
 const FOCUS_SESSION_KEY = 'pp_cart_scroll_recommendations'
 
@@ -90,8 +91,10 @@ export default function PatientCartDrawer() {
   const summaryTotal = includePendingInSummary ? cartTotal + pendingTotal : cartTotal
 
   const setQty = async (itemId, quantity) => {
+    const w = parsePositiveWhole(String(quantity))
+    if (w == null) return
     try {
-      await updateCartItem(itemId, quantity)
+      await updateCartItem(itemId, w)
       notifyPatientCartChanged()
     } catch (e) {
       setCheckoutError(e)
@@ -358,9 +361,14 @@ function CartLine({ it, onQty, onRemove }) {
         <input
           type="number"
           min={1}
+          step={1}
+          inputMode="numeric"
           className="w-16 rounded border border-input bg-background px-2 py-1"
           value={it.quantity}
-          onChange={(e) => onQty(it.id, Math.max(1, Number(e.target.value) || 1))}
+          onChange={(e) => {
+            const w = parsePositiveWhole(e.target.value)
+            if (w != null) void onQty(it.id, w)
+          }}
         />
       </label>
     </li>

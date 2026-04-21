@@ -168,9 +168,14 @@ export const updateUser = (id, payload) => api(`/users/${id}`, { method: 'PUT', 
 export const getPractitionerPatients = (params = {}) => {
   const search = new URLSearchParams()
   if (params.q != null && params.q !== '') search.set('q', String(params.q))
+  if (params.page != null && params.page !== '') search.set('page', String(params.page))
+  if (params.limit != null && params.limit !== '') search.set('limit', String(params.limit))
   const q = search.toString()
   return api(`/patients${q ? `?${q}` : ''}`)
 }
+
+export const createPractitionerPatient = (body) =>
+  api('/patients', { method: 'POST', body: JSON.stringify(body) })
 
 // Carts (server-side; practitioner + patient)
 export const getCart = (params = {}) => {

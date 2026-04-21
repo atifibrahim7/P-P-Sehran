@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { ok, created, badRequest, conflict } = require('../../utils/response');
 const { authenticateToken, requireRole } = require('../../middleware/auth');
 const prisma = require('../../config/prisma');
+const { parsePositiveInt } = require('../../utils/quantity');
 const { createOrder } = require('../orders/service');
 
 const router = Router();
@@ -276,7 +277,12 @@ router.post('/clear', authenticateToken, async (req, res) => {
 /** POST /carts/items */
 router.post('/items', authenticateToken, async (req, res) => {
 	const { productId, quantity } = req.body || {};
-	const qty = Math.max(1, Number(quantity) || 1);
+	let qty;
+	try {
+		qty = parsePositiveInt(quantity, 1);
+	} catch (e) {
+		return badRequest(res, e.message || 'Invalid quantity');
+	}
 	if (!productId) return badRequest(res, 'productId required');
 
 	const product = await prisma.product.findUnique({
@@ -364,8 +370,13 @@ router.post('/items', authenticateToken, async (req, res) => {
 /** PATCH /carts/items/:itemId */
 router.patch('/items/:itemId', authenticateToken, async (req, res) => {
 	const itemId = Number(req.params.itemId);
-	const quantity = Number(req.body?.quantity);
-	if (Number.isNaN(itemId) || Number.isNaN(quantity) || quantity < 1) {
+	let quantity;
+	try {
+		quantity = parsePositiveInt(req.body?.quantity, null);
+	} catch (e) {
+		return badRequest(res, e.message || 'Valid quantity required');
+	}
+	if (Number.isNaN(itemId)) {
 		return badRequest(res, 'Valid quantity required');
 	}
 
