@@ -30,15 +30,59 @@ model Practitioner {
 }
 
 model Patient {
-  id             Int    @id @default(autoincrement())
-  userId         Int    @unique
-  practitionerId Int?
+  id                        Int           @id @default(autoincrement())
+  userId                    Int           @unique
+  practitionerId            Int?
+  title                     String?       @db.VarChar(10)
+  forenames                 String        @db.VarChar(100)
+  surname                   String        @db.VarChar(100)
+  dateOfBirth               DateTime      @db.Date
+  gender                    PatientGender
+  policyNumber              String        @unique @db.VarChar(100)
+  clientReference2          String?       @db.VarChar(100)
+  nationalInsuranceNumber   String?       @db.VarChar(50)
+  smokerStatus              SmokerStatus  @default(UNKNOWN)
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
 
   user           User   @relation(fields: [userId], references: [id])
   practitioner   Practitioner? @relation(fields: [practitionerId], references: [id])
 
   orders         Order[]
   carts          Cart[]
+  addresses      Address[]
+  contacts       Contact[]
+}
+
+model Address {
+  id            Int       @id @default(autoincrement())
+  patientId     Int
+  addressTypeId Int
+  addressLine1  String    @db.VarChar(255)
+  addressLine2  String?   @db.VarChar(255)
+  addressLine3  String?   @db.VarChar(255)
+  city          String    @db.VarChar(100)
+  county        String?   @db.VarChar(100)
+  country       String    @db.VarChar(100)
+  postcode      String    @db.VarChar(20)
+  isPreferred   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  patient       Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+}
+
+model Contact {
+  id          Int       @id @default(autoincrement())
+  patientId   Int
+  phoneNumber String    @db.VarChar(20)
+  phoneType   PhoneType
+  createdAt   DateTime  @default(now())
+
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
 }
 
 model Vendor {
@@ -86,6 +130,7 @@ model CartItem {
   productId Int
   quantity  Int             @default(1)
   addedBy   CartItemSource
+  labTestCategory LabTestCategory?
 
   cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -102,6 +147,12 @@ enum CartScope {
 enum CartItemSource {
   PRACTITIONER
   PATIENT
+}
+
+enum LabTestCategory {
+  HOME_KIT
+  LAB_VISIT
+  PHLEBOTOMY
 }
 
 model Order {
@@ -193,4 +244,23 @@ enum OrderStatus {
 enum PaymentStatus {
   PENDING
   PAID
+}
+
+enum PatientGender {
+  UNKNOWN
+  MALE
+  FEMALE
+}
+
+enum SmokerStatus {
+  UNKNOWN
+  NON_SMOKER
+  SMOKER
+}
+
+enum PhoneType {
+  MOBILE
+  HOME
+  WORK
+  OTHER
 }

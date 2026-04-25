@@ -8,6 +8,7 @@ const {
 	orderListInclude,
 	loadOrderWithRelations,
 } = require('../../lib/serialize');
+const { sendOrderCreatedEmail, sendOrderPaidEmail } = require('../../lib/mail/orderNotification');
 
 const ORDER_STATES = ['pending', 'paid', 'processing', 'completed'];
 
@@ -114,6 +115,12 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		},
 		include: orderInclude,
 	});
+	try {
+		await sendOrderCreatedEmail(order);
+	} catch (err) {
+		// eslint-disable-next-line no-console
+		console.warn('[email:order-created] failed', order.id, err?.message || err);
+	}
 
 	return {
 		order: serializeOrder(order),
@@ -130,6 +137,7 @@ async function markPaid(orderId) {
 		include: { items: true },
 	});
 	if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
+	const wasAlreadyPaid = order.paymentStatus === 'PAID';
 
 	await prisma.order.update({
 		where: { id },
@@ -156,6 +164,14 @@ async function markPaid(orderId) {
 	}
 
 	const full = await loadOrderWithRelations(id);
+	if (!wasAlreadyPaid) {
+		try {
+			await sendOrderPaidEmail(full);
+		} catch (err) {
+			// eslint-disable-next-line no-console
+			console.warn('[email:order-paid] failed', id, err?.message || err);
+		}
+	}
 	return serializeOrder(full);
 }
 

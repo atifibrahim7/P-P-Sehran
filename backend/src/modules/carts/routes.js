@@ -6,6 +6,22 @@ const { parsePositiveInt } = require('../../utils/quantity');
 const { createOrder } = require('../orders/service');
 
 const router = Router();
+const LAB_TEST_CATEGORY_DB_BY_API = {
+	home_kit: 'HOME_KIT',
+	lab_visit: 'LAB_VISIT',
+	phlebotomy: 'PHLEBOTOMY',
+};
+const LAB_TEST_CATEGORY_API_BY_DB = {
+	HOME_KIT: 'home_kit',
+	LAB_VISIT: 'lab_visit',
+	PHLEBOTOMY: 'phlebotomy',
+};
+
+function parseLabTestCategory(input) {
+	if (input == null || input === '') return null;
+	const key = String(input).trim().toLowerCase();
+	return LAB_TEST_CATEGORY_DB_BY_API[key] || null;
+}
 
 function productMini(p) {
 	if (!p) return null;
@@ -31,6 +47,7 @@ function serializeCartItem(row) {
 		productId: row.productId,
 		quantity: row.quantity,
 		addedBy: row.addedBy === 'PRACTITIONER' ? 'practitioner' : 'patient',
+		labTestCategory: row.labTestCategory ? LAB_TEST_CATEGORY_API_BY_DB[row.labTestCategory] || null : null,
 		product: productMini(row.product),
 	};
 }
@@ -277,6 +294,7 @@ router.post('/clear', authenticateToken, async (req, res) => {
 /** POST /carts/items */
 router.post('/items', authenticateToken, async (req, res) => {
 	const { productId, quantity } = req.body || {};
+	const parsedLabTestCategory = parseLabTestCategory(req.body?.labTestCategory);
 	let qty;
 	try {
 		qty = parsePositiveInt(quantity, 1);
@@ -290,6 +308,13 @@ router.post('/items', authenticateToken, async (req, res) => {
 		include: { vendor: true },
 	});
 	if (!product) return badRequest(res, 'Product not found');
+	if (req.body?.labTestCategory != null && req.body?.labTestCategory !== '' && !parsedLabTestCategory) {
+		return badRequest(res, 'labTestCategory must be home_kit, lab_visit, or phlebotomy');
+	}
+	if (parsedLabTestCategory && product.category !== 'BLOOD_TEST') {
+		return badRequest(res, 'labTestCategory is only valid for lab tests');
+	}
+	const labTestCategory = product.category === 'BLOOD_TEST' ? parsedLabTestCategory : null;
 
 	if (req.user.role === 'practitioner') {
 		const pr = await prisma.practitioner.findUnique({ where: { userId: Number(req.user.userId) } });
@@ -313,9 +338,11 @@ router.post('/items', authenticateToken, async (req, res) => {
 					productId: product.id,
 					quantity: qty,
 					addedBy: 'PRACTITIONER',
+					labTestCategory,
 				},
 				update: {
 					quantity: { increment: qty },
+					...(labTestCategory ? { labTestCategory } : {}),
 				},
 			});
 		} else {
@@ -330,9 +357,11 @@ router.post('/items', authenticateToken, async (req, res) => {
 					productId: product.id,
 					quantity: qty,
 					addedBy: 'PRACTITIONER',
+					labTestCategory,
 				},
 				update: {
 					quantity: { increment: qty },
+					...(labTestCategory ? { labTestCategory } : {}),
 				},
 			});
 		}
@@ -355,9 +384,11 @@ router.post('/items', authenticateToken, async (req, res) => {
 				productId: product.id,
 				quantity: qty,
 				addedBy: 'PATIENT',
+				labTestCategory,
 			},
 			update: {
 				quantity: { increment: qty },
+				...(labTestCategory ? { labTestCategory } : {}),
 			},
 		});
 		const cart = await loadCartFull(cartRow.id);

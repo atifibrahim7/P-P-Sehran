@@ -196,9 +196,47 @@ function buildSpec() {
 						userId: { type: 'integer' },
 						name: { type: 'string' },
 						email: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						policyNumber: { type: 'string' },
 						primaryPractitionerName: { type: ['string', 'null'] }
 					},
-					required: ['patientId', 'userId', 'name', 'email']
+					required: ['patientId', 'userId', 'name', 'email', 'forenames', 'surname', 'policyNumber']
+				},
+				PatientGender: {
+					type: 'string',
+					enum: ['Unknown', 'Male', 'Female']
+				},
+				SmokerStatus: {
+					type: 'string',
+					enum: ['Unknown', 'NonSmoker', 'Smoker']
+				},
+				PhoneType: {
+					type: 'string',
+					enum: ['Mobile', 'Home', 'Work', 'Other']
+				},
+				PatientAddressInput: {
+					type: 'object',
+					properties: {
+						addressTypeId: { type: 'integer', enum: [0, 1, 2] },
+						addressLine1: { type: 'string' },
+						addressLine2: { type: ['string', 'null'] },
+						addressLine3: { type: ['string', 'null'] },
+						city: { type: 'string' },
+						county: { type: ['string', 'null'] },
+						country: { type: 'string' },
+						postcode: { type: 'string' },
+						isPreferred: { type: 'boolean' }
+					},
+					required: ['addressTypeId', 'addressLine1', 'city', 'country', 'postcode']
+				},
+				PatientContactInput: {
+					type: 'object',
+					properties: {
+						phoneNumber: { type: 'string' },
+						phoneType: { $ref: '#/components/schemas/PhoneType' }
+					},
+					required: ['phoneNumber', 'phoneType']
 				},
 				PractitionerPatientList: {
 					type: 'object',
@@ -213,11 +251,27 @@ function buildSpec() {
 				CreatePractitionerPatientRequest: {
 					type: 'object',
 					properties: {
-						name: { type: 'string' },
 						email: { type: 'string' },
+						title: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						dateOfBirth: { type: 'string', format: 'date' },
+						gender: { $ref: '#/components/schemas/PatientGender' },
+						policyNumber: { type: 'string' },
+						clientReference2: { type: ['string', 'null'] },
+						nationalInsuranceNumber: { type: ['string', 'null'] },
+						smokerStatus: { $ref: '#/components/schemas/SmokerStatus' },
+						addresses: {
+							type: 'array',
+							items: { $ref: '#/components/schemas/PatientAddressInput' }
+						},
+						contacts: {
+							type: 'array',
+							items: { $ref: '#/components/schemas/PatientContactInput' }
+						},
 						password: { type: 'string', description: 'Optional; auto-generated if omitted' }
 					},
-					required: ['name', 'email']
+					required: ['email', 'forenames', 'surname', 'dateOfBirth', 'gender', 'policyNumber']
 				},
 				CreatePractitionerPatientResponse: {
 					type: 'object',
@@ -226,9 +280,12 @@ function buildSpec() {
 						patientId: { type: 'integer' },
 						email: { type: 'string' },
 						name: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						policyNumber: { type: 'string' },
 						emailSent: { type: 'boolean' }
 					},
-					required: ['userId', 'patientId', 'email', 'name', 'emailSent']
+					required: ['userId', 'patientId', 'email', 'name', 'forenames', 'surname', 'policyNumber', 'emailSent']
 				}
 			}
 		},

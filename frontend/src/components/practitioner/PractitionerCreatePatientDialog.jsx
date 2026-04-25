@@ -12,24 +12,88 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 /**
- * @param {(created: { userId: number, name: string, email: string }) => void} [props.onCreated]
+ * @param {(created: { userId: number, patientId: number, name: string, email: string }) => void} [props.onCreated]
  */
 export default function PractitionerCreatePatientDialog({ open, onOpenChange, onCreated, title, description }) {
-  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [titleText, setTitleText] = useState('')
+  const [forenames, setForenames] = useState('')
+  const [surname, setSurname] = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const [gender, setGender] = useState('Unknown')
+  const [policyNumber, setPolicyNumber] = useState('')
+  const [clientReference2, setClientReference2] = useState('')
+  const [nationalInsuranceNumber, setNationalInsuranceNumber] = useState('')
+  const [smokerStatus, setSmokerStatus] = useState('Unknown')
   const [password, setPassword] = useState('')
+  const [addresses, setAddresses] = useState([])
+  const [contacts, setContacts] = useState([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     if (!open) return
-    setName('')
     setEmail('')
+    setTitleText('')
+    setForenames('')
+    setSurname('')
+    setDateOfBirth('')
+    setGender('Unknown')
+    setPolicyNumber('')
+    setClientReference2('')
+    setNationalInsuranceNumber('')
+    setSmokerStatus('Unknown')
     setPassword('')
+    setAddresses([])
+    setContacts([])
     setError(null)
   }, [open])
+
+  const addAddress = () => {
+    setAddresses((prev) => [
+      ...prev,
+      {
+        addressTypeId: '0',
+        addressLine1: '',
+        addressLine2: '',
+        addressLine3: '',
+        city: '',
+        county: '',
+        country: '',
+        postcode: '',
+        isPreferred: false,
+      },
+    ])
+  }
+
+  const addContact = () => {
+    setContacts((prev) => [...prev, { phoneNumber: '', phoneType: 'Mobile' }])
+  }
+
+  const updateAddress = (index, patch) => {
+    setAddresses((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)))
+  }
+
+  const updateContact = (index, patch) => {
+    setContacts((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)))
+  }
+
+  const removeAddress = (index) => {
+    setAddresses((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const removeContact = (index) => {
+    setContacts((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -37,14 +101,48 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
     setBusy(true)
     try {
       const body = {
-        name: name.trim(),
         email: email.trim(),
+        ...(titleText.trim() ? { title: titleText.trim() } : {}),
+        forenames: forenames.trim(),
+        surname: surname.trim(),
+        dateOfBirth: dateOfBirth.trim(),
+        gender,
+        policyNumber: policyNumber.trim(),
+        ...(clientReference2.trim() ? { clientReference2: clientReference2.trim() } : {}),
+        ...(nationalInsuranceNumber.trim()
+          ? { nationalInsuranceNumber: nationalInsuranceNumber.trim() }
+          : {}),
+        smokerStatus,
+        ...(addresses.length
+          ? {
+              addresses: addresses.map((address) => ({
+                addressTypeId: Number(address.addressTypeId),
+                addressLine1: address.addressLine1.trim(),
+                ...(address.addressLine2.trim() ? { addressLine2: address.addressLine2.trim() } : {}),
+                ...(address.addressLine3.trim() ? { addressLine3: address.addressLine3.trim() } : {}),
+                city: address.city.trim(),
+                ...(address.county.trim() ? { county: address.county.trim() } : {}),
+                country: address.country.trim(),
+                postcode: address.postcode.trim(),
+                isPreferred: Boolean(address.isPreferred),
+              })),
+            }
+          : {}),
+        ...(contacts.length
+          ? {
+              contacts: contacts.map((contact) => ({
+                phoneNumber: contact.phoneNumber.trim(),
+                phoneType: contact.phoneType,
+              })),
+            }
+          : {}),
         ...(password.trim() ? { password: password.trim() } : {}),
       }
       const out = await createPractitionerPatient(body)
       const row = {
         userId: out.userId,
-        name: out.name ?? body.name,
+        patientId: out.patientId,
+        name: out.name ?? `${body.forenames} ${body.surname}`.trim(),
         email: out.email ?? body.email,
       }
       onCreated?.(row)
@@ -58,7 +156,7 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md" showCloseButton>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl" showCloseButton>
         <form onSubmit={submit}>
           <DialogHeader>
             <DialogTitle>{title ?? 'Add patient'}</DialogTitle>
@@ -74,16 +172,6 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
 
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="create-patient-name">Full name</Label>
-              <Input
-                id="create-patient-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoComplete="name"
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="create-patient-email">Email</Label>
               <Input
                 id="create-patient-email"
@@ -93,6 +181,280 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
                 required
                 autoComplete="email"
               />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="create-patient-title">Title</Label>
+                <Input
+                  id="create-patient-title"
+                  value={titleText}
+                  onChange={(e) => setTitleText(e.target.value)}
+                  maxLength={10}
+                  placeholder="Mr"
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="create-patient-forenames">Forenames</Label>
+                <Input
+                  id="create-patient-forenames"
+                  value={forenames}
+                  onChange={(e) => setForenames(e.target.value)}
+                  required
+                  maxLength={100}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="create-patient-surname">Surname</Label>
+                <Input
+                  id="create-patient-surname"
+                  value={surname}
+                  onChange={(e) => setSurname(e.target.value)}
+                  required
+                  maxLength={100}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-patient-dob">Date of birth</Label>
+                <Input
+                  id="create-patient-dob"
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select value={gender} onValueChange={setGender}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Unknown">Unknown</SelectItem>
+                    <SelectItem value="Male">Male</SelectItem>
+                    <SelectItem value="Female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-patient-policy-number">Policy number</Label>
+                <Input
+                  id="create-patient-policy-number"
+                  value={policyNumber}
+                  onChange={(e) => setPolicyNumber(e.target.value)}
+                  required
+                  maxLength={100}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="create-patient-client-reference-2">Client reference 2</Label>
+                <Input
+                  id="create-patient-client-reference-2"
+                  value={clientReference2}
+                  onChange={(e) => setClientReference2(e.target.value)}
+                  maxLength={100}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="create-patient-nin">National insurance number</Label>
+                <Input
+                  id="create-patient-nin"
+                  value={nationalInsuranceNumber}
+                  onChange={(e) => setNationalInsuranceNumber(e.target.value)}
+                  maxLength={50}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Smoker status</Label>
+              <Select value={smokerStatus} onValueChange={setSmokerStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Unknown">Unknown</SelectItem>
+                  <SelectItem value="NonSmoker">NonSmoker</SelectItem>
+                  <SelectItem value="Smoker">Smoker</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <Label>Addresses</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addAddress}>
+                  Add address
+                </Button>
+              </div>
+              {addresses.length ? (
+                <div className="space-y-4">
+                  {addresses.map((address, index) => (
+                    <div key={`address-${index}`} className="space-y-3 rounded-md border p-3">
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-2">
+                          <Label>Type</Label>
+                          <Select
+                            value={address.addressTypeId}
+                            onValueChange={(value) => updateAddress(index, { addressTypeId: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="0">Home</SelectItem>
+                              <SelectItem value="1">Work</SelectItem>
+                              <SelectItem value="2">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label>Address line 1</Label>
+                          <Input
+                            value={address.addressLine1}
+                            onChange={(e) => updateAddress(index, { addressLine1: e.target.value })}
+                            required
+                            maxLength={255}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Address line 2</Label>
+                          <Input
+                            value={address.addressLine2}
+                            onChange={(e) => updateAddress(index, { addressLine2: e.target.value })}
+                            maxLength={255}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Address line 3</Label>
+                          <Input
+                            value={address.addressLine3}
+                            onChange={(e) => updateAddress(index, { addressLine3: e.target.value })}
+                            maxLength={255}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>City</Label>
+                          <Input
+                            value={address.city}
+                            onChange={(e) => updateAddress(index, { city: e.target.value })}
+                            required
+                            maxLength={100}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>County</Label>
+                          <Input
+                            value={address.county}
+                            onChange={(e) => updateAddress(index, { county: e.target.value })}
+                            maxLength={100}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-2 sm:col-span-2">
+                          <Label>Country</Label>
+                          <Input
+                            value={address.country}
+                            onChange={(e) => updateAddress(index, { country: e.target.value })}
+                            required
+                            maxLength={100}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Postcode</Label>
+                          <Input
+                            value={address.postcode}
+                            onChange={(e) => updateAddress(index, { postcode: e.target.value })}
+                            required
+                            maxLength={20}
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(address.isPreferred)}
+                            onChange={(e) => {
+                              const checked = e.target.checked
+                              setAddresses((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? { ...item, isPreferred: checked }
+                                    : checked
+                                      ? { ...item, isPreferred: false }
+                                      : item,
+                                ),
+                              )
+                            }}
+                          />
+                          Preferred
+                        </Label>
+                        <Button type="button" variant="outline" size="sm" onClick={() => removeAddress(index)}>
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-3 rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <Label>Contacts</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addContact}>
+                  Add contact
+                </Button>
+              </div>
+              {contacts.length ? (
+                <div className="space-y-3">
+                  {contacts.map((contact, index) => (
+                    <div key={`contact-${index}`} className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label>Phone number</Label>
+                        <Input
+                          value={contact.phoneNumber}
+                          onChange={(e) => updateContact(index, { phoneNumber: e.target.value })}
+                          required
+                          maxLength={20}
+                          placeholder="+92..."
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Phone type</Label>
+                        <Select
+                          value={contact.phoneType}
+                          onValueChange={(value) => updateContact(index, { phoneType: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Mobile">Mobile</SelectItem>
+                            <SelectItem value="Home">Home</SelectItem>
+                            <SelectItem value="Work">Work</SelectItem>
+                            <SelectItem value="Other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="sm:col-span-3">
+                        <Button type="button" variant="outline" size="sm" onClick={() => removeContact(index)}>
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label htmlFor="create-patient-pw">Password (optional)</Label>
