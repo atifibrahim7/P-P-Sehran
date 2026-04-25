@@ -61,6 +61,17 @@ function numericPriceField(v) {
 	return n;
 }
 
+function normalizeSku(input) {
+	if (input == null) return '';
+	return String(input).trim().toUpperCase();
+}
+
+function isValidSku(sku) {
+	if (!sku) return false;
+	if (sku.length > 64) return false;
+	return /^[A-Z0-9._-]+$/.test(sku);
+}
+
 /** Returns { patientPrice, practitionerPrice } or { error: string }. Legacy: single `price` sets both. */
 function resolveCreatePrices(body) {
 	const pp = numericPriceField(body?.patient_price ?? body?.patientPrice);
@@ -94,6 +105,7 @@ function withComputedFields(product) {
 		category: normalizedCategory,
 		type: normalizedCategory,
 		price,
+		sku: product.labTestCode || null,
 		patient_price: Number(product.patientPrice ?? price),
 		practitioner_price: Number(product.practitionerPrice ?? price),
 		vendorId: product.vendorId,
@@ -104,9 +116,10 @@ function withComputedFields(product) {
 }
 
 router.get('/', authenticateToken, async (req, res) => {
-	const { type, category, vendorId, search } = req.query;
+	const { type, category, vendorId, search, q, minPrice, maxPrice, sort } = req.query;
 	const categoryFilter = normalizeCategory(type || category);
 	const { page, pageSize } = parsePagination(req.query);
+	const queryTerm = String(q ?? search ?? '').trim();
 
 	const where = {};
 	if (categoryFilter) {
@@ -114,19 +127,40 @@ router.get('/', authenticateToken, async (req, res) => {
 		if (dbCat) where.category = dbCat;
 	}
 	if (vendorId) where.vendorId = Number(vendorId);
-	if (search) {
-		where.OR = [
-			{ name: { contains: String(search) } },
-			{ description: { contains: String(search) } },
+	if (queryTerm) {
+		const or = [
+			{ name: { contains: queryTerm } },
+			{ description: { contains: queryTerm } },
+			{ labTestCode: { contains: queryTerm.toUpperCase() } },
 		];
+		where.OR = or;
 	}
+
+	const min = minPrice != null && minPrice !== '' ? Number(minPrice) : null;
+	const max = maxPrice != null && maxPrice !== '' ? Number(maxPrice) : null;
+	if ((min != null && Number.isNaN(min)) || (max != null && Number.isNaN(max))) {
+		return badRequest(res, 'minPrice/maxPrice must be numbers');
+	}
+	if (min != null || max != null) {
+		where.patientPrice = {
+			...(min != null ? { gte: min } : {}),
+			...(max != null ? { lte: max } : {}),
+		};
+	}
+
+	let orderBy = { id: 'asc' };
+	if (sort === 'name_asc') orderBy = { name: 'asc' };
+	else if (sort === 'name_desc') orderBy = { name: 'desc' };
+	else if (sort === 'price_asc') orderBy = { patientPrice: 'asc' };
+	else if (sort === 'price_desc') orderBy = { patientPrice: 'desc' };
+	else if (sort === 'newest') orderBy = { id: 'desc' };
 
 	const total = await prisma.product.count({ where });
 	const skip = (page - 1) * pageSize;
 	const rows = await prisma.product.findMany({
 		where,
 		include: { vendor: true },
-		orderBy: { id: 'asc' },
+		orderBy,
 		skip,
 		take: pageSize,
 	});
@@ -138,11 +172,15 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 	const { name, description, imageLink } = req.body || {};
 	const category = normalizeCategory(req.body?.category || req.body?.type);
 	const prices = resolveCreatePrices(req.body || {});
+	const sku = normalizeSku(req.body?.sku);
 	if (prices.error) {
 		return badRequest(res, prices.error);
 	}
 	if (!name || !category) {
 		return badRequest(res, 'name and category/type required');
+	}
+	if (!isValidSku(sku)) {
+		return badRequest(res, 'Valid sku required (A-Z, 0-9, dot, underscore, hyphen)');
 	}
 	if (!VALID_CATEGORIES.includes(category)) {
 		return badRequest(res, 'category/type must be lab_test or supplement');
@@ -152,6 +190,8 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 
 	const expectedVendorType = dbCategoryToVendorType(dbCat);
 	let vendorId = req.body?.vendorId != null ? Number(req.body.vendorId) : null;
+	const existingSku = await prisma.product.findFirst({ where: { labTestCode: sku } });
+	if (existingSku) return badRequest(res, 'SKU already exists');
 	if (vendorId) {
 		const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
 		if (!vendor) return badRequest(res, 'Invalid vendorId');
@@ -177,6 +217,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 			vendorId,
 			patientPrice: prices.patientPrice,
 			practitionerPrice: prices.practitionerPrice,
+			labTestCode: sku,
 			imageUrl: imageLink || null,
 		},
 		include: { vendor: true },
@@ -198,6 +239,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 	}
 	const dbCat = apiCategoryToDb(nextCategory);
 	if (!dbCat) return badRequest(res, 'Invalid category');
+	const incomingSku = req.body?.sku !== undefined ? normalizeSku(req.body?.sku) : null;
 
 	const data = { category: dbCat };
 	const categoryChanged = dbCat !== existing.category;
@@ -221,6 +263,24 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 	if (req.body?.name != null) data.name = req.body.name;
 	if (req.body?.description != null) data.description = req.body.description;
 	if (req.body?.imageLink != null) data.imageUrl = req.body.imageLink;
+	if (incomingSku != null) {
+		if (!isValidSku(incomingSku)) {
+			return badRequest(res, 'Valid sku required (A-Z, 0-9, dot, underscore, hyphen)');
+		}
+		const duplicate = await prisma.product.findFirst({
+			where: {
+				labTestCode: incomingSku,
+				id: { not: id },
+			},
+			select: { id: true },
+		});
+		if (duplicate) return badRequest(res, 'SKU already exists');
+		data.labTestCode = incomingSku;
+	}
+	const resultingSku = data.labTestCode ?? normalizeSku(existing.labTestCode);
+	if (!isValidSku(resultingSku)) {
+		return badRequest(res, 'SKU is required for this product');
+	}
 
 	const hasPatient =
 		req.body?.patient_price !== undefined || req.body?.patientPrice !== undefined;

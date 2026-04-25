@@ -6,6 +6,7 @@ import {
   PRACTITIONER_PATIENT_HINT_KEY,
   PRACTITIONER_PATIENT_USER_KEY,
 } from '../../context/PractitionerCartContext.jsx'
+import PractitionerCreatePatientDialog from './PractitionerCreatePatientDialog.jsx'
 import VendorCartConflictDialog from './VendorCartConflictDialog.jsx'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -64,6 +65,7 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
   const [conflictDetails, setConflictDetails] = useState(null)
   const [pendingPayload, setPendingPayload] = useState(null)
   const [conflictLoading, setConflictLoading] = useState(false)
+  const [createPatientOpen, setCreatePatientOpen] = useState(false)
 
   useEffect(() => {
     if (!open || !product) return
@@ -258,6 +260,17 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
     setPatientPickerOpen(false)
   }
 
+  const onNewPatientCreated = (row) => {
+    selectPatientAndClosePicker({
+      userId: row.userId,
+      name: row.name,
+      email: row.email,
+    })
+    setPickerPage(1)
+    setDebouncedPickerSearch('')
+    setPickerSearch('')
+  }
+
   const pickerTotalPages = Math.max(1, Math.ceil(pickerTotal / PATIENT_PAGE_SIZE))
   const pickerRangeStart = pickerTotal === 0 ? 0 : (pickerPage - 1) * PATIENT_PAGE_SIZE + 1
   const pickerRangeEnd = Math.min(pickerTotal, pickerPage * PATIENT_PAGE_SIZE)
@@ -266,6 +279,13 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
 
   return (
     <>
+      <PractitionerCreatePatientDialog
+        open={createPatientOpen}
+        onOpenChange={setCreatePatientOpen}
+        onCreated={onNewPatientCreated}
+        title="Add a patient"
+        description="Creates a login linked to your practice so you can order on their behalf."
+      />
       <VendorCartConflictDialog
         open={conflictOpen}
         onOpenChange={setConflictOpen}
@@ -335,10 +355,6 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
                     Clear
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Search runs after you pause (longer delay for one word; shorter after two or more words) or when you
-                  press Enter.
-                </p>
               </div>
 
               <div className="space-y-2">
@@ -418,6 +434,17 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
               <p className="text-center text-xs text-muted-foreground">
                 Page <span className="tabular-nums">{pickerPage}</span> of{' '}
                 <span className="tabular-nums">{pickerTotalPages}</span>
+              </p>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Need someone new?{' '}
+                <button
+                  type="button"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  onClick={() => setCreatePatientOpen(true)}
+                >
+                  Add a patient
+                </button>
               </p>
             </div>
           ) : (
@@ -518,6 +545,16 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
                   <Button type="button" variant="secondary" className="w-full" onClick={openPatientPicker}>
                     {patientUserId ? 'Change patient' : 'Select patient'}
                   </Button>
+                  <p className="text-center text-xs text-muted-foreground">
+                    Don&apos;t see them?{' '}
+                    <button
+                      type="button"
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                      onClick={() => setCreatePatientOpen(true)}
+                    >
+                      Add a patient
+                    </button>
+                  </p>
                 </div>
               ) : null}
 

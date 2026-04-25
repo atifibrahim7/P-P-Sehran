@@ -6,6 +6,12 @@ const stateStyles = {
   processing: 'border-blue-500/30 bg-blue-500/5 text-blue-900 dark:text-blue-100',
   completed: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-900 dark:text-emerald-100',
 }
+const dotStyles = {
+  pending: 'bg-amber-500',
+  paid: 'bg-emerald-500',
+  processing: 'bg-blue-500',
+  completed: 'bg-emerald-500',
+}
 
 export default function OrderStateBadge({ state, className }) {
   const s = String(state || '').toLowerCase()
@@ -13,11 +19,15 @@ export default function OrderStateBadge({ state, className }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium',
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium',
         stateStyles[s] ?? 'border-border bg-muted/50 text-foreground',
         className,
       )}
     >
+      <span
+        aria-hidden
+        className={cn('inline-block size-1.5 rounded-full', dotStyles[s] ?? 'bg-muted-foreground')}
+      />
       {label}
     </span>
   )

@@ -89,6 +89,18 @@ export default function PatientOrders() {
   }, [cancelFlag, setSearchParams])
 
   const filtered = useMemo(() => orders.filter((o) => matchesFilter(o, filter)), [orders, filter])
+  const pendingCount = useMemo(
+    () => orders.filter((o) => String(o.state).toLowerCase() === 'pending').length,
+    [orders],
+  )
+  const paidCount = useMemo(
+    () =>
+      orders.filter((o) => {
+        const s = String(o.state).toLowerCase()
+        return s === 'paid' || s === 'completed'
+      }).length,
+    [orders],
+  )
 
   const pay = async (orderId) => {
     try {
@@ -109,11 +121,21 @@ export default function PatientOrders() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-3">
         <h1 className="text-2xl font-semibold tracking-tight">My orders</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every order tied to your account. Open one for line items and payment, or pay pending orders here.
-        </p>
+        {!loading ? (
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex rounded-full border border-border/70 bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
+              Total {orders.length}
+            </span>
+            <span className="inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-900 dark:text-amber-100">
+              Pending {pendingCount}
+            </span>
+            <span className="inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-900 dark:text-emerald-100">
+              Paid {paidCount}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {error ? (
@@ -135,13 +157,13 @@ export default function PatientOrders() {
         </Alert>
       ) : null}
 
-      <Card className="border-border/80 shadow-none">
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+      <Card className="overflow-hidden border-border/80 shadow-sm">
+        <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-gradient-to-b from-primary/[0.06] to-transparent sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
           <div>
             <CardTitle className="text-base">
               {loading ? 'Orders' : `Orders (${filtered.length}${filter !== 'all' ? ` of ${orders.length}` : ''})`}
             </CardTitle>
-            <CardDescription>Date, practitioner when applicable, and your total.</CardDescription>
+            <CardDescription>Latest activity and quick payment actions.</CardDescription>
           </div>
           <div className="w-full sm:w-[220px]">
             <Select value={filter} onValueChange={setFilter} disabled={loading || !orders.length}>
@@ -158,7 +180,7 @@ export default function PatientOrders() {
             </Select>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-5">
           {loading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -188,10 +210,10 @@ export default function PatientOrders() {
             <p className="text-sm text-muted-foreground">No orders match this filter.</p>
           ) : (
             <>
-              <div className="hidden md:block overflow-x-auto">
+              <div className="hidden overflow-x-auto md:block">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="hover:bg-transparent">
                       <TableHead>Date</TableHead>
                       <TableHead>Order</TableHead>
                       <TableHead>Practitioner</TableHead>
@@ -202,21 +224,24 @@ export default function PatientOrders() {
                   </TableHeader>
                   <TableBody>
                     {filtered.map((o) => (
-                      <TableRow key={o.id} className="[&>td]:align-middle">
+                      <TableRow
+                        key={o.id}
+                        className="group border-border/60 [&>td]:align-middle [&>td]:transition-colors [&:hover>td]:bg-muted/40"
+                      >
                         <TableCell className="whitespace-nowrap text-sm text-muted-foreground tabular-nums">
                           {formatDate(o.createdAt)}
                         </TableCell>
-                        <TableCell className="font-medium tabular-nums">#{o.id}</TableCell>
+                        <TableCell className="font-semibold tabular-nums text-foreground">#{o.id}</TableCell>
                         <TableCell className="max-w-[200px] truncate text-sm">{o.practitionerName ?? '—'}</TableCell>
                         <TableCell>
                           <OrderStateBadge state={o.state} />
                         </TableCell>
-                        <TableCell className="text-right tabular-nums">{formatMoney(o.total_patient)}</TableCell>
+                        <TableCell className="text-right tabular-nums font-semibold">{formatMoney(o.total_patient)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-2">
                             <Link
                               to={`/orders/${o.id}`}
-                              className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'no-underline')}
+                              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'no-underline')}
                             >
                               View
                             </Link>
@@ -224,7 +249,7 @@ export default function PatientOrders() {
                               <Button
                                 type="button"
                                 size="sm"
-                                className="gap-1.5"
+                                className="gap-1.5 shadow-sm shadow-primary/20"
                                 disabled={payingOrderId != null}
                                 onClick={() => pay(o.id)}
                               >
@@ -253,7 +278,7 @@ export default function PatientOrders() {
                 {filtered.map((o) => (
                   <li
                     key={o.id}
-                    className="rounded-lg border border-border/60 bg-muted/15 p-4 space-y-3"
+                    className="space-y-3 rounded-xl border border-border/70 bg-card p-4 shadow-sm"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
@@ -274,7 +299,7 @@ export default function PatientOrders() {
                     <div className="flex flex-wrap gap-2 pt-1">
                       <Link
                         to={`/orders/${o.id}`}
-                        className={cn(buttonVariants({ variant: 'secondary', size: 'sm' }), 'no-underline')}
+                        className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'no-underline')}
                       >
                         View
                       </Link>
@@ -282,7 +307,7 @@ export default function PatientOrders() {
                         <Button
                           type="button"
                           size="sm"
-                          className="gap-1.5"
+                          className="gap-1.5 shadow-sm shadow-primary/20"
                           disabled={payingOrderId != null}
                           onClick={() => pay(o.id)}
                         >

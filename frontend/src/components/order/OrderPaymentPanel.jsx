@@ -29,24 +29,18 @@ export default function OrderPaymentPanel({
   const patientLine = isPatientViewer
   const adminView = userRole === 'admin'
   const paymentSubtitle = (() => {
-    if (adminView) return 'Administrators cannot complete checkout for an order on behalf of users.'
-    if (showPay && patientLine) {
-      return 'Complete secure checkout for your patient total. You will be redirected to the payment step.'
-    }
-    if (showPay && userRole === 'practitioner') {
-      return 'Complete checkout for your practitioner total. You will be redirected to the payment step.'
-    }
-    if (order.state === 'paid' || order.state === 'completed') return 'This order is paid.'
-    if (userRole === 'practitioner' && order.type === 'patient' && order.state === 'pending') {
-      return 'When pending, the patient completes checkout from their account.'
-    }
-    return 'Review the amount and payment status below.'
+    if (adminView) return 'Admin view'
+    if (showPay && patientLine) return 'Ready to pay'
+    if (showPay && userRole === 'practitioner') return 'Ready to pay'
+    if (order.state === 'paid' || order.state === 'completed') return 'Paid'
+    if (userRole === 'practitioner' && order.type === 'patient' && order.state === 'pending') return 'Patient pays this order'
+    return 'Payment status'
   })()
   const ordersListPath =
     userRole === 'patient' ? '/patient/orders' : userRole === 'practitioner' ? '/practitioner/orders' : '/admin/orders'
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Button variant="ghost" size="sm" className="-ml-2 mb-2 h-auto gap-1 px-2 text-muted-foreground" asChild>
@@ -59,7 +53,7 @@ export default function OrderPaymentPanel({
             <h1 className="text-2xl font-semibold tracking-tight">Order #{order.id}</h1>
             <OrderStateBadge state={order.state} />
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-xs text-muted-foreground">
             {order.createdAt ? new Date(order.createdAt).toLocaleString() : null}
           </p>
         </div>
@@ -77,8 +71,8 @@ export default function OrderPaymentPanel({
         </Card>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="border-border/80 shadow-sm lg:col-span-3">
+      <div className="grid gap-5 lg:grid-cols-5">
+        <Card className="overflow-hidden border-border/80 shadow-sm lg:col-span-3">
           <CardHeader>
             <CardTitle className="text-base">Order details</CardTitle>
             <CardDescription>
@@ -93,7 +87,7 @@ export default function OrderPaymentPanel({
             {items.map((it, idx) => (
               <div key={idx}>
                 {idx > 0 ? <Separator className="my-3" /> : null}
-                <div className="flex justify-between gap-4 text-sm">
+                <div className="flex items-start justify-between gap-4 rounded-lg px-2 py-1 text-sm">
                   <div>
                     <p className="font-medium leading-snug">{it.product?.name}</p>
                     <p className="text-xs text-muted-foreground">{it.product?.category}</p>
@@ -120,13 +114,13 @@ export default function OrderPaymentPanel({
               <CardDescription className="text-left">{paymentSubtitle}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-0">
-              <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3">
+              <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{amountLabel}</p>
                 <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-foreground">${amountDue}</p>
                 {!adminView && showPay ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <ShieldCheck className="size-3.5 shrink-0 opacity-80" />
-                    Encrypted checkout — you can return here after paying.
+                    Secure checkout
                   </p>
                 ) : null}
               </div>

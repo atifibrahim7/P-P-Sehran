@@ -1,16 +1,32 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 import { mockMarkPaid } from '../../api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
+function parseOrderSpec(searchParams) {
+  const single = searchParams.get('orderId') ?? ''
+  const multi = searchParams.get('orderIds') ?? ''
+  if (multi.trim()) {
+    const ids = multi
+      .split(',')
+      .map((s) => Number(s.trim()))
+      .filter((n) => !Number.isNaN(n))
+    if (ids.length) return { ids, label: ids.map((n) => `#${n}`).join(', ') }
+  }
+  if (single !== '') {
+    const n = Number(single)
+    if (!Number.isNaN(n)) return { ids: [n], label: `#${n}` }
+  }
+  return null
+}
+
 export default function MockCheckout() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const orderIdRaw = searchParams.get('orderId') ?? ''
-  const parsed = orderIdRaw !== '' ? Number(orderIdRaw) : NaN
-  const valid = orderIdRaw !== '' && !Number.isNaN(parsed)
+  const spec = useMemo(() => parseOrderSpec(searchParams), [searchParams])
+  const valid = spec != null && spec.ids.length > 0
 
   const [error, setError] = useState(null)
   const [phase, setPhase] = useState('processing')
@@ -21,11 +37,19 @@ export default function MockCheckout() {
     let timeoutId
     ;(async () => {
       try {
-        await mockMarkPaid(parsed)
+        const result = await mockMarkPaid(spec.ids.length === 1 ? spec.ids[0] : spec.ids)
         if (cancelled) return
+        if (result.orders && Array.isArray(result.orders)) {
+          setPhase('done')
+          const firstId = result.orders[0]?.id ?? spec.ids[0]
+          timeoutId = window.setTimeout(() => {
+            if (!cancelled) navigate(`/orders/${firstId}`, { replace: true })
+          }, 900)
+          return
+        }
         setPhase('done')
         timeoutId = window.setTimeout(() => {
-          if (!cancelled) navigate(`/orders/${parsed}`, { replace: true })
+          if (!cancelled) navigate(`/orders/${spec.ids[0]}`, { replace: true })
         }, 900)
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e : new Error(String(e)))
@@ -35,20 +59,7 @@ export default function MockCheckout() {
       cancelled = true
       if (timeoutId) window.clearTimeout(timeoutId)
     }
-  }, [valid, parsed, navigate])
-
-  if (!orderIdRaw) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center p-6">
-        <Card className="w-full max-w-md border-destructive/40 shadow-lg">
-          <CardHeader>
-            <CardTitle>Invalid link</CardTitle>
-            <CardDescription>Missing order id in this URL.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    )
-  }
+  }, [valid, navigate, spec])
 
   if (!valid) {
     return (
@@ -56,7 +67,9 @@ export default function MockCheckout() {
         <Card className="w-full max-w-md border-destructive/40 shadow-lg">
           <CardHeader>
             <CardTitle>Invalid link</CardTitle>
-            <CardDescription>The order id must be a valid number.</CardDescription>
+            <CardDescription>
+              Missing or invalid order id(s). Use orderId=… or orderIds=1,2,3.
+            </CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -92,12 +105,14 @@ export default function MockCheckout() {
           </CardTitle>
           <CardDescription className="text-base">
             {phase === 'processing'
-              ? 'Please wait while we securely mark this order as paid.'
-              : 'Redirecting you back to your order…'}
+              ? 'Please wait while we securely mark your order(s) as paid.'
+              : 'Redirecting you to your order…'}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-center text-sm tabular-nums text-muted-foreground">Order #{parsed}</p>
+          <p className="text-center text-sm tabular-nums text-muted-foreground">
+            {spec.ids.length === 1 ? `Order ${spec.label}` : `Orders ${spec.label}`}
+          </p>
         </CardContent>
       </Card>
       <p className="mt-6 max-w-sm text-center text-xs text-muted-foreground">

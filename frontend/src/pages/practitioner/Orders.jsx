@@ -233,15 +233,12 @@ export default function PractitionerOrders() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Commission summary and history from paid patient orders; then patient and self orders, search, and preview.
-        </p>
       </div>
 
       <div id={COMMISSIONS_ANCHOR_ID} className="scroll-mt-6 space-y-4">
-        <h2 className="text-sm font-medium text-muted-foreground">Commission</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Commission</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Card className="border-border/80 bg-gradient-to-br from-card to-muted/30 shadow-sm">
+          <Card className="border-border/80 bg-gradient-to-br from-primary/[0.04] to-card shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Pending from admin</CardTitle>
             </CardHeader>
@@ -251,7 +248,7 @@ export default function PractitionerOrders() {
               </p>
             </CardContent>
           </Card>
-          <Card className="border-border/80 bg-gradient-to-br from-card to-muted/30 shadow-sm">
+          <Card className="border-border/80 bg-gradient-to-br from-primary/[0.04] to-card shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Marked paid</CardTitle>
             </CardHeader>
@@ -270,14 +267,12 @@ export default function PractitionerOrders() {
           </Alert>
         ) : null}
 
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader className="space-y-4 border-b pb-4">
+        <Card className="overflow-hidden border-border/80 shadow-sm">
+          <CardHeader className="space-y-4 border-b border-border/60 bg-gradient-to-b from-primary/[0.05] to-transparent pb-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <CardTitle className="text-base font-medium">Commission history</CardTitle>
-                <CardDescription className="mt-1">
-                  Patient, products sold, and your commission per order.
-                </CardDescription>
+                <CardDescription className="mt-1">Per-order payout lines.</CardDescription>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {comTotal === 1 ? '1 line' : `${comTotal} lines`}
                 </p>
@@ -480,7 +475,7 @@ export default function PractitionerOrders() {
       </div>
 
       <div className="space-y-6">
-        <h2 className="text-sm font-medium text-muted-foreground">Orders</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Orders</h2>
 
       {error ? (
         <Alert variant="destructive">
@@ -511,8 +506,8 @@ export default function PractitionerOrders() {
         ))}
       </div>
 
-      <Card className="border-border/80 shadow-sm">
-        <CardHeader className="space-y-4 border-b pb-4">
+      <Card className="overflow-hidden border-border/80 shadow-sm">
+        <CardHeader className="space-y-4 border-b border-border/60 bg-gradient-to-b from-primary/[0.05] to-transparent pb-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <CardTitle className="text-base font-medium">
               {total === 1 ? '1 order' : `${total} orders`}
@@ -578,7 +573,10 @@ export default function PractitionerOrders() {
                 {orders.map((o) => {
                   const isPatient = o.type === 'patient'
                   return (
-                    <TableRow key={o.id} className="[&>td]:transition-colors [&:hover>td]:bg-muted/60">
+                    <TableRow
+                      key={o.id}
+                      className="group border-border/60 [&>td]:transition-colors [&:hover>td]:bg-muted/50"
+                    >
                       <TableCell className="text-center">
                         <Button
                           type="button"

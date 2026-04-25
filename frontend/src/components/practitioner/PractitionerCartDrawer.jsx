@@ -99,24 +99,21 @@ export default function PractitionerCartDrawer() {
         className="flex h-full max-h-[100dvh] w-full min-h-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
         showCloseButton
       >
-        <SheetHeader className="shrink-0 border-b border-border px-4 py-4 text-left">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="size-5 text-primary" />
-            <SheetTitle>Cart</SheetTitle>
+        <SheetHeader className="shrink-0 border-b border-border bg-gradient-to-b from-primary/5 to-transparent px-5 py-4 text-left">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+              <ShoppingCart className="size-4 text-primary" />
+            </div>
+            <SheetTitle className="text-base">Cart</SheetTitle>
           </div>
           <SheetDescription className="text-left">
-            <span className="inline-flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="tabular-nums">
-                You · {selfQty} items
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <Badge variant="secondary" className="tabular-nums text-xs">
+                You · {selfQty}
               </Badge>
-              <Badge variant="outline" className="tabular-nums">
-                Patients · {forPatientsQty} items
+              <Badge variant="outline" className="tabular-nums text-xs">
+                Patients · {forPatientsQty}
               </Badge>
-              {totalQty > 0 ? (
-                <span className="text-muted-foreground">
-                  {totalQty} total line units
-                </span>
-              ) : null}
             </span>
           </SheetDescription>
         </SheetHeader>
@@ -130,19 +127,19 @@ export default function PractitionerCartDrawer() {
               </Alert>
             ) : null}
 
-            <section className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <User className="size-4 text-muted-foreground" />
+            <section className="space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <User className="size-3.5" />
                 For you
               </div>
               {!self?.cart?.items?.length ? (
-                <p className="text-sm text-muted-foreground">No items in your practitioner cart.</p>
+                <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">Empty</p>
               ) : (
-                <ul className="space-y-3">
+                <ul className="space-y-2">
                   {self.cart.items.map((it) => (
                     <li
                       key={it.id}
-                      className="rounded-lg border border-border/60 bg-muted/20 p-3 text-sm"
+                      className="rounded-xl border border-border/70 bg-card px-3 py-2.5 text-sm shadow-sm"
                     >
                       <div className="flex justify-between gap-2">
                         <span className="font-medium leading-snug">{it.product?.name}</span>
@@ -172,26 +169,26 @@ export default function PractitionerCartDrawer() {
                   ))}
                 </ul>
               )}
-              {self?.practitionerSubtotal > 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Subtotal (you pay) ${Number(self.practitionerSubtotal).toFixed(2)}
+                  {self?.practitionerSubtotal > 0 ? (
+                <p className="text-xs tabular-nums text-muted-foreground">
+                  Subtotal ${Number(self.practitionerSubtotal).toFixed(2)}
                 </p>
               ) : null}
             </section>
 
             <Separator />
 
-            <section className="space-y-3">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Users className="size-4 text-muted-foreground" />
+            <section className="space-y-2.5">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Users className="size-3.5" />
                 For patients
               </div>
               {!patients.some((p) => p.cart?.items?.length) ? (
-                <p className="text-sm text-muted-foreground">No patient carts with items.</p>
+                <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">No patient carts</p>
               ) : (
                 patients.map((block) =>
                   !block.cart?.items?.length ? null : (
-                    <div key={block.patientUserId} className="space-y-2 rounded-xl border border-border/70 bg-card p-3">
+                    <div key={block.patientUserId} className="space-y-2 rounded-xl border border-border/70 bg-card p-3 shadow-sm">
                       <div>
                         <p className="font-medium">{block.patientName}</p>
                         <p className="text-xs text-muted-foreground">{block.patientEmail}</p>
@@ -244,13 +241,9 @@ export default function PractitionerCartDrawer() {
         </ScrollArea>
 
         <div className="shrink-0 border-t border-border bg-card px-4 py-4">
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">
-            <strong>Place orders</strong> creates one order for your cart, then one order per patient cart (only non-empty
-            carts). You can pay or route patients to pay from their portal as usual.
-          </p>
           <Button
             type="button"
-            className="w-full"
+            className="w-full rounded-xl h-10 font-semibold shadow-sm shadow-primary/20"
             disabled={checkoutLoading || totalQty === 0}
             onClick={placeAllOrders}
           >

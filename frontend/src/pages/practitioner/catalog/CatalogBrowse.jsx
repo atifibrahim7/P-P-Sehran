@@ -20,6 +20,21 @@ export default function PractitionerCatalogBrowse({ category }) {
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogProduct, setDialogProduct] = useState(null)
+  const [q, setQ] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [vendorFilter, setVendorFilter] = useState('all')
+  const [sort, setSort] = useState('name_asc')
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(q.trim()), 280)
+    return () => clearTimeout(t)
+  }, [q])
+
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }))
+  }, [category, searchTerm, vendorFilter, sort, minPrice, maxPrice])
 
   const loadProducts = async () => {
     setLoading(true)
@@ -31,6 +46,11 @@ export default function PractitionerCatalogBrowse({ category }) {
           type: category === 'lab_test' ? 'lab_test' : 'supplement',
           page: pagination.page,
           pageSize: pagination.pageSize,
+          ...(searchTerm ? { q: searchTerm } : {}),
+          ...(vendorFilter !== 'all' ? { vendorId: Number(vendorFilter) } : {}),
+          ...(minPrice !== '' ? { minPrice } : {}),
+          ...(maxPrice !== '' ? { maxPrice } : {}),
+          sort,
         }),
       ])
       setVendors(vs)
@@ -46,7 +66,7 @@ export default function PractitionerCatalogBrowse({ category }) {
   useEffect(() => {
     loadProducts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category, pagination.page, pagination.pageSize, vendorListType])
+  }, [category, pagination.page, pagination.pageSize, vendorListType, searchTerm, vendorFilter, sort, minPrice, maxPrice])
 
   const openAdd = (p) => {
     setDialogProduct(p)
@@ -66,11 +86,73 @@ export default function PractitionerCatalogBrowse({ category }) {
 
       <div>
         <h2 className="text-lg font-semibold tracking-tight capitalize">{categoryLabel}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {pagination.total} product{pagination.total === 1 ? '' : 's'} — select a product to choose quantity, recipient,
-          and add to the right cart.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{pagination.total} product{pagination.total === 1 ? '' : 's'}</p>
       </div>
+
+      <Card className="border-border/80 shadow-sm">
+        <CardContent className="grid gap-3 pt-4 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="sm:col-span-2 lg:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Search</label>
+            <input
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              placeholder="SKU or name"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Vendor</label>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              value={vendorFilter}
+              onChange={(e) => setVendorFilter(e.target.value)}
+            >
+              <option value="all">All</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={String(v.id)}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Sort</label>
+            <select
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+            >
+              <option value="name_asc">Name A-Z</option>
+              <option value="name_desc">Name Z-A</option>
+              <option value="price_asc">Price Low-High</option>
+              <option value="price_desc">Price High-Low</option>
+              <option value="newest">Newest</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Min price</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Max price</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value)}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {error ? (
         <Alert variant="destructive">
@@ -121,6 +203,7 @@ export default function PractitionerCatalogBrowse({ category }) {
                 </div>
                 <CardHeader className="gap-1 pb-2 pt-4">
                   <CardTitle className="line-clamp-2 text-base leading-snug">{p.name}</CardTitle>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-primary">{p.sku}</p>
                   {p.description ? (
                     <CardDescription className="line-clamp-2 text-xs leading-relaxed">{p.description}</CardDescription>
                   ) : (

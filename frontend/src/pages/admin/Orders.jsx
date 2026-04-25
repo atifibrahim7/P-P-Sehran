@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
 
 function formatMoney(n) {
   if (n == null || Number.isNaN(n)) return '—'
@@ -35,9 +36,6 @@ export default function AdminOrders() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Admin · Orders</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          All orders across practitioners and patients. Open a row for payment and line items.
-        </p>
       </div>
 
       {error ? (
@@ -47,10 +45,10 @@ export default function AdminOrders() {
         </Alert>
       ) : null}
 
-      <Card className="border-border/80 shadow-none">
-        <CardHeader>
+      <Card className="overflow-hidden border-border/80 shadow-sm">
+        <CardHeader className="border-b border-border/60 bg-gradient-to-b from-primary/[0.05] to-transparent">
           <CardTitle className="text-base">Orders ({orders.length})</CardTitle>
-          <CardDescription>Practitioner and patient names (from linked accounts).</CardDescription>
+          <CardDescription>All practitioner and patient orders.</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {loading ? (
@@ -60,7 +58,7 @@ export default function AdminOrders() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-transparent">
                   <TableHead>Order</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>State</TableHead>
@@ -68,13 +66,14 @@ export default function AdminOrders() {
                   <TableHead className="text-right">Pract. total</TableHead>
                   <TableHead>Practitioner</TableHead>
                   <TableHead>Patient</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {orders.map((o) => (
                   <TableRow
                     key={o.id}
-                    className="cursor-pointer [&>td]:transition-colors [&:hover>td]:bg-muted"
+                    className="group cursor-pointer border-border/60 [&>td]:transition-colors [&:hover>td]:bg-muted/45"
                     tabIndex={0}
                     aria-label={`View order ${o.id}`}
                     onClick={() => navigate(`/orders/${o.id}`)}
@@ -85,15 +84,15 @@ export default function AdminOrders() {
                       }
                     }}
                   >
-                    <TableCell className="font-medium tabular-nums">#{o.id}</TableCell>
+                    <TableCell className="font-semibold tabular-nums">#{o.id}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-normal">
+                      <Badge variant="outline" className="font-normal capitalize">
                         {String(o.type || '').replace('_', ' ')}
                       </Badge>
                     </TableCell>
-                    <TableCell>{o.state}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(o.total_patient)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatMoney(o.total_practitioner)}</TableCell>
+                    <TableCell className="capitalize">{o.state}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">{formatMoney(o.total_patient)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">{formatMoney(o.total_practitioner)}</TableCell>
                     <TableCell className="max-w-[140px]">
                       <span className="line-clamp-2 text-sm font-medium text-foreground" title={o.practitionerName || ''}>
                         {o.practitionerName ?? '—'}
@@ -103,6 +102,20 @@ export default function AdminOrders() {
                       <span className="line-clamp-2 text-sm font-medium text-foreground" title={o.patientName || ''}>
                         {o.patientName ?? '—'}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/orders/${o.id}`)
+                        }}
+                      >
+                        View
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -146,10 +146,7 @@ export default function PatientDashboard() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Patient dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your orders, lab results, and what your practitioner suggested — including quick ways to pay.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
       </div>
 
       {error ? (
@@ -172,21 +169,17 @@ export default function PatientDashboard() {
       ) : null}
 
       {!loading && data ? (
-        <Card className="overflow-hidden border-primary/20 shadow-md">
-          <CardHeader className="border-b border-border/60 bg-muted/30 pb-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Stethoscope className="size-5 text-primary" />
-                  <CardTitle className="text-lg">From your practitioner</CardTitle>
+        <Card className="overflow-hidden border-primary/20 shadow-md shadow-primary/5">
+          <CardHeader className="border-b border-border/60 bg-gradient-to-b from-primary/5 to-transparent pb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Stethoscope className="size-4 text-primary" />
                 </div>
-                <CardDescription className="text-base leading-relaxed">
-                  Practitioner-added lines in your cart (not checked out yet) and practitioner-placed orders awaiting
-                  payment — same info you see in the cart drawer.
-                </CardDescription>
+                <CardTitle className="text-base">From your practitioner</CardTitle>
               </div>
               <Button variant="outline" size="sm" className="shrink-0" asChild>
-                <Link to="/patient/recommendations">Full recommendations page</Link>
+                <Link to="/patient/recommendations">View all</Link>
               </Button>
             </div>
           </CardHeader>
@@ -194,9 +187,8 @@ export default function PatientDashboard() {
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-foreground">Suggested in your cart</h2>
               {!data.suggestedCount ? (
-                <p className="text-sm text-muted-foreground">
-                  Nothing suggested in your cart right now. When a practitioner adds items, they appear here; you can also
-                  shop the catalog yourself.
+                <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+                  Nothing suggested yet
                 </p>
               ) : (
                 <>
@@ -228,10 +220,6 @@ export default function PatientDashboard() {
                       Open cart &amp; pay
                     </Link>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Opens the cart with practitioner suggestions in view. Checkout always uses your full cart; the summary
-                    checkbox there is for including unpaid suggested orders in the combined total.
-                  </p>
                 </>
               )}
             </section>
@@ -239,9 +227,8 @@ export default function PatientDashboard() {
             <section className="space-y-3">
               <h2 className="text-sm font-semibold text-foreground">Orders awaiting your payment</h2>
               {!data.pendingPatientOrders.length ? (
-                <p className="text-sm text-muted-foreground">
-                  No unpaid orders right now. When your practitioner places an order for you, it will show here with{' '}
-                  <strong className="font-medium text-foreground">Pay now</strong>.
+                <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-sm text-muted-foreground">
+                  No unpaid orders
                 </p>
               ) : (
                 <>
@@ -307,22 +294,25 @@ export default function PatientDashboard() {
       </div>
 
       {!loading && data ? (
-        <Card className="border-primary/25 bg-gradient-to-br from-primary/5 to-transparent shadow-none">
-          <CardHeader>
-            <CardTitle className="text-base">Your shared cart</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {data.cartItemCount} item{data.cartItemCount === 1 ? '' : 's'} · {data.suggestedCount} from practitioner ·{' '}
-              {data.mine} from you
-            </p>
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent shadow-none">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base">Your cart</CardTitle>
+                <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                  {data.cartItemCount} item{data.cartItemCount === 1 ? '' : 's'} · {data.suggestedCount} from practitioner · {data.mine} from you
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Link to="/patient/cart" className={cn(buttonVariants({ size: 'sm' }))}>
+                  Open cart
+                </Link>
+                <Link to="/patient/catalog/lab-test" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
+                  Browse
+                </Link>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            <Link to="/patient/cart" className={cn(buttonVariants({ size: 'sm' }))}>
-              Open cart
-            </Link>
-            <Link to="/patient/catalog/lab-test" className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}>
-              Browse catalog
-            </Link>
-          </CardContent>
         </Card>
       ) : null}
 

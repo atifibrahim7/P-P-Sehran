@@ -74,6 +74,7 @@ function buildSpec() {
 					type: 'object',
 					properties: {
 						id: { type: 'string', format: 'uuid' },
+						sku: { type: 'string' },
 						name: { type: 'string' },
 						category: { type: 'string', enum: ['blood_test', 'supplement'] },
 						vendorId: { type: 'string', format: 'uuid' },
@@ -81,7 +82,7 @@ function buildSpec() {
 						patient_price: { type: 'number' },
 						practitioner_price: { type: 'number' }
 					},
-					required: ['id', 'name', 'category', 'vendorId', 'patient_price', 'practitioner_price']
+					required: ['id', 'sku', 'name', 'category', 'vendorId', 'patient_price', 'practitioner_price']
 				},
 				Order: {
 					type: 'object',
@@ -152,11 +153,16 @@ function buildSpec() {
 				CheckoutRequest: {
 					type: 'object',
 					properties: {
-						orderId: { type: 'string', format: 'uuid' },
+						orderId: { type: 'integer' },
+						orderIds: {
+							type: 'array',
+							items: { type: 'integer' },
+							description: 'Multiple patient orders in one Stripe session (patients only)'
+						},
 						successUrl: { type: 'string' },
 						cancelUrl: { type: 'string' }
 					},
-					required: ['orderId', 'successUrl', 'cancelUrl']
+					required: ['successUrl', 'cancelUrl']
 				},
 				CreateOrderRequest: {
 					type: 'object',

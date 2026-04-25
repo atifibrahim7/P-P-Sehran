@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils'
 
 function emptyForm() {
   return {
+    sku: '',
     name: '',
     description: '',
     patient_price: '',
@@ -70,6 +71,7 @@ export default function ProductManagement({ category }) {
     const pp = Number(form.patient_price)
     const pr = Number(form.practitioner_price)
     const base =
+      form.sku.trim() &&
       form.name.trim() &&
       form.patient_price !== '' &&
       form.practitioner_price !== '' &&
@@ -114,6 +116,7 @@ export default function ProductManagement({ category }) {
     setError(null)
     const payload = {
       type: category,
+      sku: form.sku.trim().toUpperCase(),
       name: form.name.trim(),
       description: form.description.trim(),
       patient_price: Number(form.patient_price),
@@ -139,6 +142,7 @@ export default function ProductManagement({ category }) {
   const startEdit = (product) => {
     setEditingId(product.id)
     setForm({
+      sku: product.sku || '',
       name: product.name || '',
       description: product.description || '',
       patient_price:
@@ -262,6 +266,9 @@ export default function ProductManagement({ category }) {
                 </div>
                 <CardHeader className="gap-1 pb-2 pt-4">
                   <CardTitle className="line-clamp-2 text-base leading-snug">{p.name}</CardTitle>
+                  {p.sku ? (
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-primary">{p.sku}</p>
+                  ) : null}
                   {p.description ? (
                     <CardDescription className="line-clamp-2 text-xs leading-relaxed">{p.description}</CardDescription>
                   ) : (
@@ -365,6 +372,16 @@ export default function ProductManagement({ category }) {
             <DialogTitle>{isEdit ? 'Update product' : 'Create product'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={submit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sku">SKU</Label>
+              <Input
+                id="sku"
+                value={form.sku}
+                onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value.toUpperCase() }))}
+                placeholder="LAB-00123"
+                required
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
               <Input id="name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />

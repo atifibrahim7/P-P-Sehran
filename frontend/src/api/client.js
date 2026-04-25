@@ -233,33 +233,61 @@ export async function startCheckout(orderId, successUrl, cancelUrl) {
   throw new Error('Invalid checkout response')
 }
 
-export async function mockMarkPaid(orderId) {
+/** Patient: pay multiple pending PATIENT orders in one Stripe session (e.g. new cart order + practitioner suggestions). */
+export async function startCheckoutOrders(orderIds, successUrl, cancelUrl) {
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    throw new Error('orderIds required')
+  }
+  const data = await api('/payments/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ orderIds, successUrl, cancelUrl }),
+  })
+  if (data?.url) {
+    window.location.href = data.url
+    return
+  }
+  if (data?.mode === 'mock' && data?.checkoutUrl) {
+    window.location.href = data.checkoutUrl
+    return
+  }
+  throw new Error('Invalid checkout response')
+}
+
+export async function mockMarkPaid(orderIdOrIds) {
+  const requestBody =
+    Array.isArray(orderIdOrIds) && orderIdOrIds.length
+      ? { orderIds: orderIdOrIds }
+      : { orderId: orderIdOrIds }
   const res = await fetch(`${BASE_URL}/payments/webhook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId }),
+    body: JSON.stringify(requestBody),
   })
   const raw = await res.text()
-  let body = null
+  let parsed = null
   if (raw) {
     try {
-      body = JSON.parse(raw)
+      parsed = JSON.parse(raw)
     } catch {
-      body = null
+      parsed = null
     }
   }
   if (!res.ok) {
     const msg =
-      (body && typeof body === 'object' && body.error?.message) ||
-      (typeof body === 'string' ? body : null) ||
+      (parsed && typeof parsed === 'object' && parsed.error?.message) ||
+      (typeof parsed === 'string' ? parsed : null) ||
       raw ||
       `Payment failed (${res.status})`
     throw Object.assign(new Error(String(msg)), { status: res.status })
   }
-  if (!body?.success || !body?.data) {
+  if (!parsed?.success || !parsed?.data) {
     throw new Error('Invalid mock payment response')
   }
-  const data = body.data
+  const data = parsed.data
+  if (data.orders && Array.isArray(data.orders)) {
+    if (!data.confirmed || !data.orders.length) throw new Error('Payment not confirmed')
+    return data
+  }
   if (!data.confirmed || data.order?.paymentStatus !== 'PAID') {
     throw new Error('Payment not confirmed')
   }
