@@ -73,6 +73,12 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
   const [conflictLoading, setConflictLoading] = useState(false)
   const [createPatientOpen, setCreatePatientOpen] = useState(false)
 
+  const productThumb = useMemo(() => {
+    if (!product) return null
+    if (Array.isArray(product.imageUrls) && product.imageUrls.length) return product.imageUrls[0]
+    return product.imageLink || null
+  }, [product])
+
   useEffect(() => {
     if (!open || !product) return
     setQuantity(1)
@@ -463,8 +469,8 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
             <div className="space-y-4">
               <div className="flex gap-4">
                 <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
-                  {product.imageLink ? (
-                    <img src={product.imageLink} alt="" className="size-full object-cover" />
+                  {productThumb ? (
+                    <img src={productThumb} alt="" className="size-full object-cover" />
                   ) : (
                     <div className="flex size-full items-center justify-center text-muted-foreground">
                       <Package className="size-8 opacity-40" />

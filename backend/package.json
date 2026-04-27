@@ -14,7 +14,10 @@
     "db:fix-product-description": "node scripts/add-product-description-column.js",
     "db:fix-order-item-quantity": "node scripts/add-order-item-quantity-column.js",
     "db:create-cart-tables": "node scripts/create-cart-tables.js",
-    "db:sync": "node scripts/sync-business-schema.js"
+    "db:sync": "node scripts/sync-business-schema.js",
+    "import:shopify": "node scripts/import-shopify-products.js",
+    "catalog:wipe": "node scripts/wipe-products-and-cloudinary.js",
+    "catalog:reimport": "node scripts/wipe-products-and-cloudinary.js && node scripts/import-shopify-products.js --file=Labtest.csv --category=lab_test && node scripts/import-shopify-products.js --file=Suppliments.csv --category=supplement"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -29,6 +32,7 @@
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.5",
+    "csv-parse": "^5.6.0",
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "helmet": "^7.1.0",

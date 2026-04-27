@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { ok, created, badRequest } = require('../../utils/response');
 const { authenticateToken, requireRole } = require('../../middleware/auth');
 const prisma = require('../../config/prisma');
+const { orderedGalleryUrls } = require('../../lib/productGallery');
 const { parsePagination, paginateResult } = require('../../utils/pagination');
 
 const router = Router();
@@ -98,6 +99,8 @@ function resolveCreatePrices(body) {
 function withComputedFields(product) {
 	const normalizedCategory = dbCategoryToApi(product.category);
 	const price = Number(product.patientPrice ?? 0);
+	const imageUrls = orderedGalleryUrls(product);
+	const primary = imageUrls[0] || null;
 	return {
 		id: product.id,
 		name: product.name,
@@ -110,8 +113,9 @@ function withComputedFields(product) {
 		practitioner_price: Number(product.practitionerPrice ?? price),
 		vendorId: product.vendorId,
 		vendorName: product.vendor?.name ?? null,
-		imageLink: product.imageUrl || defaultImageLink(normalizedCategory),
-		imageUrl: product.imageUrl,
+		imageLink: primary || defaultImageLink(normalizedCategory),
+		imageUrl: primary,
+		imageUrls,
 	};
 }
 
@@ -159,7 +163,10 @@ router.get('/', authenticateToken, async (req, res) => {
 	const skip = (page - 1) * pageSize;
 	const rows = await prisma.product.findMany({
 		where,
-		include: { vendor: true },
+		include: {
+			vendor: true,
+			productImages: { orderBy: { sortOrder: 'asc' } },
+		},
 		orderBy,
 		skip,
 		take: pageSize,
@@ -220,7 +227,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 			labTestCode: sku,
 			imageUrl: imageLink || null,
 		},
-		include: { vendor: true },
+		include: { vendor: true, productImages: { orderBy: { sortOrder: 'asc' } } },
 	});
 
 	return created(res, withComputedFields(product));
@@ -306,7 +313,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 	const product = await prisma.product.update({
 		where: { id },
 		data,
-		include: { vendor: true },
+		include: { vendor: true, productImages: { orderBy: { sortOrder: 'asc' } } },
 	});
 	return ok(res, withComputedFields(product));
 });

@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { ok, created, badRequest, conflict } = require('../../utils/response');
 const { authenticateToken, requireRole } = require('../../middleware/auth');
 const prisma = require('../../config/prisma');
+const { orderedGalleryUrls } = require('../../lib/productGallery');
 const { parsePositiveInt } = require('../../utils/quantity');
 const { createOrder } = require('../orders/service');
 
@@ -26,6 +27,8 @@ function parseLabTestCategory(input) {
 function productMini(p) {
 	if (!p) return null;
 	const vendor = p.vendor;
+	const imageUrls = orderedGalleryUrls(p);
+	const primary = imageUrls[0] || null;
 	return {
 		id: p.id,
 		name: p.name,
@@ -35,7 +38,8 @@ function productMini(p) {
 		patient_price: Number(p.patientPrice),
 		practitioner_price: Number(p.practitionerPrice),
 		price: Number(p.patientPrice),
-		imageLink: p.imageUrl || null,
+		imageLink: primary,
+		imageUrls,
 		vendorId: p.vendorId,
 		vendorName: vendor?.name ?? null,
 	};
@@ -137,7 +141,11 @@ async function loadCartFull(cartId) {
 	return prisma.cart.findUnique({
 		where: { id: cartId },
 		include: {
-			items: { include: { product: { include: { vendor: true } } } },
+			items: {
+				include: {
+					product: { include: { vendor: true, productImages: { orderBy: { sortOrder: 'asc' } } } },
+				},
+			},
 			patient: true,
 		},
 	});
@@ -176,7 +184,11 @@ router.get('/summary', authenticateToken, async (req, res) => {
 	const carts = await prisma.cart.findMany({
 		where: { practitionerId: pr.id },
 		include: {
-			items: { include: { product: { include: { vendor: true } } } },
+			items: {
+				include: {
+					product: { include: { vendor: true, productImages: { orderBy: { sortOrder: 'asc' } } } },
+				},
+			},
 			patient: { include: { user: { select: { id: true, name: true, email: true } } } },
 		},
 	});

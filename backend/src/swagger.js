@@ -80,7 +80,9 @@ function buildSpec() {
 						vendorId: { type: 'string', format: 'uuid' },
 						vendorName: { type: ['string', 'null'] },
 						patient_price: { type: 'number' },
-						practitioner_price: { type: 'number' }
+						practitioner_price: { type: 'number' },
+						imageLink: { type: ['string', 'null'] },
+						imageUrls: { type: 'array', items: { type: 'string' } }
 					},
 					required: ['id', 'sku', 'name', 'category', 'vendorId', 'patient_price', 'practitioner_price']
 				},

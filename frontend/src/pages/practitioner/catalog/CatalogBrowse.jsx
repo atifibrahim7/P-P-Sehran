@@ -6,6 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ProductSwipeGallery } from '@/components/ProductSwipeGallery'
 import { cn } from '@/lib/utils'
 
 export default function PractitionerCatalogBrowse({ category }) {
@@ -192,14 +193,17 @@ export default function PractitionerCatalogBrowse({ category }) {
                 )}
               >
                 <div className="relative aspect-[4/3] bg-muted">
-                  {p.imageLink ? (
-                    <img src={p.imageLink} alt="" className="h-[220px] w-full object-cover" loading="lazy" />
-                  ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-                      <Package className="size-14 opacity-35" strokeWidth={1.25} />
-                      <span className="text-xs font-medium opacity-60">No image</span>
-                    </div>
-                  )}
+                  <ProductSwipeGallery
+                    urls={
+                      Array.isArray(p.imageUrls) && p.imageUrls.length
+                        ? p.imageUrls
+                        : p.imageLink
+                          ? [p.imageLink]
+                          : []
+                    }
+                    alt={p.name}
+                    heightClass="h-[220px]"
+                  />
                 </div>
                 <CardHeader className="gap-1 pb-2 pt-4">
                   <CardTitle className="line-clamp-2 text-base leading-snug">{p.name}</CardTitle>
