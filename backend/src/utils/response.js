@@ -10,5 +10,9 @@ function badRequest(res, message, details) {
 	return res.status(400).json({ success: false, error: { message, details } });
 }
 
-module.exports = { ok, created, badRequest };
+function conflict(res, message, code, details) {
+	return res.status(409).json({ success: false, error: { message, code: code || 'CONFLICT', details } });
+}
+
+module.exports = { ok, created, badRequest, conflict };
 

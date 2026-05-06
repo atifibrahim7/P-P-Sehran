@@ -17,7 +17,8 @@ function buildSpec() {
 			{ name: 'Orders', description: 'Orders, order items, order state' },
 			{ name: 'Payments', description: 'Stripe checkout and webhooks' },
 			{ name: 'Commissions', description: 'Practitioner commissions' },
-			{ name: 'Lab', description: 'Lab integration and test results' }
+			{ name: 'Lab', description: 'Lab integration and test results' },
+			{ name: 'Patients', description: 'Practitioner patient roster and registration' }
 		],
 		components: {
 			securitySchemes: {
@@ -65,7 +66,7 @@ function buildSpec() {
 					properties: {
 						id: { type: 'string', format: 'uuid' },
 						name: { type: 'string' },
-						type: { type: 'string', enum: ['lab', 'supplement'] }
+						type: { type: 'string', enum: ['lab', 'supplement', 'both'] }
 					},
 					required: ['id', 'name', 'type']
 				},
@@ -73,13 +74,17 @@ function buildSpec() {
 					type: 'object',
 					properties: {
 						id: { type: 'string', format: 'uuid' },
+						sku: { type: 'string' },
 						name: { type: 'string' },
 						category: { type: 'string', enum: ['blood_test', 'supplement'] },
 						vendorId: { type: 'string', format: 'uuid' },
+						vendorName: { type: ['string', 'null'] },
 						patient_price: { type: 'number' },
-						practitioner_price: { type: 'number' }
+						practitioner_price: { type: 'number' },
+						imageLink: { type: ['string', 'null'] },
+						imageUrls: { type: 'array', items: { type: 'string' } }
 					},
-					required: ['id', 'name', 'category', 'vendorId', 'patient_price', 'practitioner_price']
+					required: ['id', 'sku', 'name', 'category', 'vendorId', 'patient_price', 'practitioner_price']
 				},
 				Order: {
 					type: 'object',
@@ -87,7 +92,11 @@ function buildSpec() {
 						id: { type: 'string', format: 'uuid' },
 						type: { type: 'string', enum: ['practitioner_self', 'patient'] },
 						practitionerId: { type: 'string', format: 'uuid' },
+						practitionerName: { type: ['string', 'null'] },
+						practitionerEmail: { type: ['string', 'null'] },
 						patientId: { type: ['string', 'null'], format: 'uuid' },
+						patientName: { type: ['string', 'null'] },
+						patientEmail: { type: ['string', 'null'] },
 						state: { type: 'string', enum: ['pending', 'paid', 'processing', 'completed'] },
 						total_patient: { type: 'number' },
 						total_practitioner: { type: 'number' },
@@ -146,11 +155,16 @@ function buildSpec() {
 				CheckoutRequest: {
 					type: 'object',
 					properties: {
-						orderId: { type: 'string', format: 'uuid' },
+						orderId: { type: 'integer' },
+						orderIds: {
+							type: 'array',
+							items: { type: 'integer' },
+							description: 'Multiple patient orders in one Stripe session (patients only)'
+						},
 						successUrl: { type: 'string' },
 						cancelUrl: { type: 'string' }
 					},
-					required: ['orderId', 'successUrl', 'cancelUrl']
+					required: ['successUrl', 'cancelUrl']
 				},
 				CreateOrderRequest: {
 					type: 'object',
@@ -176,6 +190,104 @@ function buildSpec() {
 					type: 'object',
 					properties: { state: { type: 'string', enum: ['pending', 'paid', 'processing', 'completed'] } },
 					required: ['state']
+				},
+				PractitionerPatientRow: {
+					type: 'object',
+					properties: {
+						patientId: { type: 'integer' },
+						userId: { type: 'integer' },
+						name: { type: 'string' },
+						email: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						policyNumber: { type: 'string' },
+						primaryPractitionerName: { type: ['string', 'null'] }
+					},
+					required: ['patientId', 'userId', 'name', 'email', 'forenames', 'surname', 'policyNumber']
+				},
+				PatientGender: {
+					type: 'string',
+					enum: ['Unknown', 'Male', 'Female']
+				},
+				SmokerStatus: {
+					type: 'string',
+					enum: ['Unknown', 'NonSmoker', 'Smoker']
+				},
+				PhoneType: {
+					type: 'string',
+					enum: ['Mobile', 'Home', 'Work', 'Other']
+				},
+				PatientAddressInput: {
+					type: 'object',
+					properties: {
+						addressTypeId: { type: 'integer', enum: [0, 1, 2] },
+						addressLine1: { type: 'string' },
+						addressLine2: { type: ['string', 'null'] },
+						addressLine3: { type: ['string', 'null'] },
+						city: { type: 'string' },
+						county: { type: ['string', 'null'] },
+						country: { type: 'string' },
+						postcode: { type: 'string' },
+						isPreferred: { type: 'boolean' }
+					},
+					required: ['addressTypeId', 'addressLine1', 'city', 'country', 'postcode']
+				},
+				PatientContactInput: {
+					type: 'object',
+					properties: {
+						phoneNumber: { type: 'string' },
+						phoneType: { $ref: '#/components/schemas/PhoneType' }
+					},
+					required: ['phoneNumber', 'phoneType']
+				},
+				PractitionerPatientList: {
+					type: 'object',
+					properties: {
+						items: { type: 'array', items: { $ref: '#/components/schemas/PractitionerPatientRow' } },
+						total: { type: 'integer' },
+						page: { type: 'integer' },
+						limit: { type: 'integer' }
+					},
+					required: ['items', 'total', 'page', 'limit']
+				},
+				CreatePractitionerPatientRequest: {
+					type: 'object',
+					properties: {
+						email: { type: 'string' },
+						title: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						dateOfBirth: { type: 'string', format: 'date' },
+						gender: { $ref: '#/components/schemas/PatientGender' },
+						policyNumber: { type: 'string' },
+						clientReference2: { type: ['string', 'null'] },
+						nationalInsuranceNumber: { type: ['string', 'null'] },
+						smokerStatus: { $ref: '#/components/schemas/SmokerStatus' },
+						addresses: {
+							type: 'array',
+							items: { $ref: '#/components/schemas/PatientAddressInput' }
+						},
+						contacts: {
+							type: 'array',
+							items: { $ref: '#/components/schemas/PatientContactInput' }
+						},
+						password: { type: 'string', description: 'Optional; auto-generated if omitted' }
+					},
+					required: ['email', 'forenames', 'surname', 'dateOfBirth', 'gender', 'policyNumber']
+				},
+				CreatePractitionerPatientResponse: {
+					type: 'object',
+					properties: {
+						userId: { type: 'integer' },
+						patientId: { type: 'integer' },
+						email: { type: 'string' },
+						name: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						policyNumber: { type: 'string' },
+						emailSent: { type: 'boolean' }
+					},
+					required: ['userId', 'patientId', 'email', 'name', 'forenames', 'surname', 'policyNumber', 'emailSent']
 				}
 			}
 		},
@@ -232,6 +344,27 @@ function buildSpec() {
 					summary: 'List users (admin)',
 					parameters: [{ in: 'query', name: 'role', schema: { $ref: '#/components/schemas/Role' } }],
 					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/patients': {
+				get: {
+					tags: ['Patients'],
+					summary: 'List patients linked to this practitioner (paginated, searchable)',
+					parameters: [
+						{ in: 'query', name: 'q', schema: { type: 'string' } },
+						{ in: 'query', name: 'page', schema: { type: 'integer', minimum: 1, default: 1 } },
+						{ in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }
+					],
+					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } }
+				},
+				post: {
+					tags: ['Patients'],
+					summary: 'Register a patient under this practitioner',
+					requestBody: {
+						required: true,
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatePractitionerPatientRequest' } } }
+					},
+					responses: { '201': { description: 'Created' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
 				}
 			},
 			'/vendors': {

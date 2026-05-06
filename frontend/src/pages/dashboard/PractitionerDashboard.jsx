@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ClipboardList, ShoppingCart, FlaskConical, Users, Package, Sparkles } from 'lucide-react'
-import { api, getOrders } from '../../api/client'
+import { api, getOrders, getPractitionerPatients } from '../../api/client'
 import KpiCard from '../../components/KpiCard.jsx'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { buttonVariants } from '@/components/ui/button'
@@ -19,16 +19,22 @@ export default function PractitionerDashboard() {
     ;(async () => {
       try {
         setLoading(true)
-        const [orders, results] = await Promise.all([getOrders(), api('/lab/results')])
+        const [orders, results, patients] = await Promise.all([
+          getOrders(),
+          api('/lab/results'),
+          getPractitionerPatients({ page: 1, limit: 1 }).catch(() => ({ total: 0 })),
+        ])
         if (!mounted) return
         const orderList = Array.isArray(orders) ? orders : []
         const cart = JSON.parse(localStorage.getItem('cart_items') || '[]')
         const pending = orderList.filter((o) => String(o.state).toLowerCase() !== 'paid').length
+        const patientTotal = typeof patients?.total === 'number' ? patients.total : 0
         setData({
           orders: orderList.length,
           pendingOrders: pending,
           results: Array.isArray(results) ? results.length : 0,
           cartItems: Array.isArray(cart) ? cart.length : 0,
+          patientAccounts: patientTotal,
         })
       } catch (e) {
         if (mounted) setError(e)
@@ -47,7 +53,13 @@ export default function PractitionerDashboard() {
       { title: 'Orders', value: loading ? '—' : data.orders, subtitle: `${data.pendingOrders} not paid`, icon: ClipboardList, colorKey: 'primary' },
       { title: 'Cart', value: loading ? '—' : data.cartItems, subtitle: 'Items ready to order', icon: ShoppingCart, colorKey: 'primary' },
       { title: 'Lab results', value: loading ? '—' : data.results, subtitle: 'Results on file', icon: FlaskConical, colorKey: 'primary' },
-      { title: 'Patients', value: '—', subtitle: 'Patient list (coming soon)', icon: Users, colorKey: 'primary' },
+      {
+        title: 'Patients',
+        value: loading ? '—' : data.patientAccounts ?? '—',
+        subtitle: 'Linked to your practice',
+        icon: Users,
+        colorKey: 'primary',
+      },
     ]
   }, [data, loading])
 

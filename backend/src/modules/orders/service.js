@@ -1,5 +1,6 @@
 const prisma = require('../../config/prisma');
 const { parsePagination, paginateResult } = require('../../utils/pagination');
+const { parsePositiveInt } = require('../../utils/quantity');
 const {
 	serializeOrder,
 	serializeOrderItem,
@@ -7,6 +8,7 @@ const {
 	orderListInclude,
 	loadOrderWithRelations,
 } = require('../../lib/serialize');
+const { sendOrderCreatedEmail, sendOrderPaidEmail } = require('../../lib/mail/orderNotification');
 
 const ORDER_STATES = ['pending', 'paid', 'processing', 'completed'];
 
@@ -38,18 +40,39 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		throw Object.assign(new Error('At least one item required'), { status: 400 });
 	}
 
-	const practitioner = await prisma.practitioner.findUnique({
-		where: { userId: Number(practitionerUserId) },
-	});
-	if (!practitioner) throw Object.assign(new Error('Invalid practitionerId'), { status: 400 });
-
 	let patientProfileId = null;
-	if (type === 'patient') {
+	let practitionerDbId = null;
+
+	if (type === 'practitioner_self') {
+		const practitioner = await prisma.practitioner.findUnique({
+			where: { userId: Number(practitionerUserId) },
+		});
+		if (!practitioner) throw Object.assign(new Error('Invalid practitionerId'), { status: 400 });
+		practitionerDbId = practitioner.id;
+	} else {
 		const patient = await prisma.patient.findUnique({
 			where: { userId: Number(patientUserId) },
 		});
 		if (!patient) throw Object.assign(new Error('Invalid patientId'), { status: 400 });
 		patientProfileId = patient.id;
+
+		const pu =
+			practitionerUserId != null && practitionerUserId !== undefined && String(practitionerUserId) !== '';
+		if (pu) {
+			const pr = await prisma.practitioner.findUnique({
+				where: { userId: Number(practitionerUserId) },
+			});
+			if (!pr) throw Object.assign(new Error('Invalid practitionerId'), { status: 400 });
+			if (patient.practitionerId != null && patient.practitionerId !== pr.id) {
+				throw Object.assign(new Error('Patient is not linked to this practitioner'), { status: 403 });
+			}
+			practitionerDbId = pr.id;
+		} else if (patient.practitionerId != null) {
+			const pr = await prisma.practitioner.findUnique({
+				where: { id: patient.practitionerId },
+			});
+			if (pr) practitionerDbId = pr.id;
+		}
 	}
 
 	const orderType = type === 'practitioner_self' ? 'SELF' : 'PATIENT';
@@ -60,7 +83,12 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 	for (const it of items) {
 		const product = await prisma.product.findUnique({ where: { id: Number(it.productId) } });
 		if (!product) throw Object.assign(new Error('Invalid product in items'), { status: 400 });
-		const quantity = it.quantity && it.quantity > 0 ? Number(it.quantity) : 1;
+		let quantity;
+		try {
+			quantity = parsePositiveInt(it.quantity, 1);
+		} catch (e) {
+			throw Object.assign(new Error(e.message || 'Invalid quantity'), { status: 400 });
+		}
 		const pp = Number(product.patientPrice);
 		const pr = Number(product.practitionerPrice);
 		totalPatient += pp * quantity;
@@ -79,7 +107,7 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		data: {
 			type: orderType,
 			patientId: patientProfileId,
-			practitionerId: practitioner.id,
+			practitionerId: practitionerDbId,
 			totalAmount,
 			status: 'PENDING',
 			paymentStatus: 'PENDING',
@@ -87,6 +115,12 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		},
 		include: orderInclude,
 	});
+	try {
+		await sendOrderCreatedEmail(order);
+	} catch (err) {
+		// eslint-disable-next-line no-console
+		console.warn('[email:order-created] failed', order.id, err?.message || err);
+	}
 
 	return {
 		order: serializeOrder(order),
@@ -103,6 +137,7 @@ async function markPaid(orderId) {
 		include: { items: true },
 	});
 	if (!order) throw Object.assign(new Error('Order not found'), { status: 404 });
+	const wasAlreadyPaid = order.paymentStatus === 'PAID';
 
 	await prisma.order.update({
 		where: { id },
@@ -113,7 +148,12 @@ async function markPaid(orderId) {
 		let totalPatient = 0;
 		let totalPractitioner = 0;
 		for (const it of order.items) {
-			const q = it.quantity ?? 1;
+			let q;
+			try {
+				q = parsePositiveInt(it.quantity, 1);
+			} catch {
+				q = 1;
+			}
 			totalPatient += Number(it.patientPrice) * q;
 			totalPractitioner += Number(it.practitionerPrice) * q;
 		}
@@ -124,6 +164,14 @@ async function markPaid(orderId) {
 	}
 
 	const full = await loadOrderWithRelations(id);
+	if (!wasAlreadyPaid) {
+		try {
+			await sendOrderPaidEmail(full);
+		} catch (err) {
+			// eslint-disable-next-line no-console
+			console.warn('[email:order-paid] failed', id, err?.message || err);
+		}
+	}
 	return serializeOrder(full);
 }
 
@@ -189,6 +237,8 @@ async function listOrdersPageForUser(user, query = {}) {
 				OR: [
 					{ patient: { user: { name: { contains: qRaw } } } },
 					{ patient: { user: { email: { contains: qRaw } } } },
+					{ practitioner: { user: { name: { contains: qRaw } } } },
+					{ practitioner: { user: { email: { contains: qRaw } } } },
 				],
 			});
 		}

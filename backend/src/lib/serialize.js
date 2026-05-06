@@ -34,7 +34,12 @@ function serializeOrder(order) {
 		status: order.status,
 		paymentStatus: order.paymentStatus,
 	};
-	const pu = order.patient && order.patient.user;
+	const pru = order.practitioner?.user;
+	if (pru) {
+		out.practitionerName = pru.name;
+		out.practitionerEmail = pru.email;
+	}
+	const pu = order.patient?.user;
 	if (pu) {
 		out.patientName = pu.name;
 		out.patientEmail = pu.email;
@@ -112,15 +117,15 @@ function serializeTestResult(r) {
 
 const orderInclude = {
 	items: { include: { product: true } },
-	patient: true,
-	practitioner: true,
+	patient: { include: { user: { select: { id: true, name: true, email: true } } } },
+	practitioner: { include: { user: { select: { id: true, name: true, email: true } } } },
 };
 
-/** List endpoint: items totals only; patient user for search + labels */
+/** List endpoint: user rows for labels + search */
 const orderListInclude = {
 	items: true,
 	patient: { include: { user: { select: { name: true, email: true } } } },
-	practitioner: true,
+	practitioner: { include: { user: { select: { name: true, email: true } } } },
 };
 
 async function loadOrderWithRelations(orderId) {

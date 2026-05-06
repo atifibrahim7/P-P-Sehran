@@ -53,6 +53,7 @@ async function main() {
 				{
 					name: 'Complete Blood Count',
 					description: 'A basic panel to evaluate overall blood health.',
+					labTestCode: 'LAB-CBC-001',
 					category: 'BLOOD_TEST',
 					vendorId: labVendor.id,
 					patientPrice: 60,
@@ -62,6 +63,7 @@ async function main() {
 				{
 					name: 'Vitamin D Supplement 2000IU',
 					description: 'Daily vitamin D support for bone and immune health.',
+					labTestCode: 'SUP-VITD-001',
 					category: 'SUPPLEMENT',
 					vendorId: suppVendor.id,
 					patientPrice: 25,

@@ -30,6 +30,49 @@ async function tableExists(name) {
 	return Number(rows[0]?.c) > 0;
 }
 
+/** Init migration had Order.patientId NOT NULL; self-orders require NULL. */
+/** Standalone patient carts: nullable practitionerId + PATIENT_DIRECT scope */
+async function ensureCartStandalonePatient() {
+	if (!(await tableExists('Cart'))) return;
+	const rows = await prisma.$queryRaw`
+		SELECT IS_NULLABLE AS n FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Cart' AND COLUMN_NAME = 'practitionerId'
+	`;
+	if (!rows?.length) return;
+	if (rows[0].n === 'NO') {
+		await prisma.$executeRawUnsafe('ALTER TABLE `Cart` MODIFY `practitionerId` INTEGER NULL');
+		console.log('Altered Cart.practitionerId to NULL (standalone patient carts).');
+	}
+	const scopeRows = await prisma.$queryRaw`
+		SELECT COLUMN_TYPE AS t FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Cart' AND COLUMN_NAME = 'scope'
+	`;
+	const t = String(scopeRows[0]?.t ?? '');
+	if (t && !t.includes('PATIENT_DIRECT')) {
+		await prisma.$executeRawUnsafe(
+			"ALTER TABLE `Cart` MODIFY `scope` ENUM('SELF', 'PATIENT', 'PATIENT_DIRECT') NOT NULL",
+		);
+		console.log('Extended Cart.scope with PATIENT_DIRECT.');
+	}
+}
+
+async function ensureOrderPatientIdNullable() {
+	const rows = await prisma.$queryRaw`
+		SELECT IS_NULLABLE AS n FROM information_schema.COLUMNS
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Order' AND COLUMN_NAME = 'patientId'
+	`;
+	if (!rows?.length) {
+		console.log('Order.patientId column not found — skip nullable fix.');
+		return;
+	}
+	if (rows[0].n === 'NO') {
+		await prisma.$executeRawUnsafe('ALTER TABLE `Order` MODIFY `patientId` INTEGER NULL');
+		console.log('Altered Order.patientId to NULL (practitioner self-orders).');
+	} else {
+		console.log('Order.patientId already nullable.');
+	}
+}
+
 async function main() {
 	if (!(await columnExists('TestResult', 'summary'))) {
 		await prisma.$executeRawUnsafe(
@@ -66,6 +109,9 @@ async function main() {
 	} else {
 		console.log('Column Commission.payoutStatus already exists.');
 	}
+
+	await ensureOrderPatientIdNullable();
+	await ensureCartStandalonePatient();
 
 	if (await tableExists('Cart')) {
 		console.log('Table Cart already exists — skipping cart DDL.');

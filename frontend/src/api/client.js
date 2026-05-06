@@ -39,14 +39,16 @@ export async function api(path, init = {}) {
   }
 
   const message = body?.error?.message ?? 'Unknown error'
+  const code = body?.error?.code
+  const details = body?.error?.details
   if (res.status === 401) {
     setToken(null)
-    throw Object.assign(new Error(message), { status: 401 })
+    throw Object.assign(new Error(message), { status: 401, code, details })
   }
   if (res.status === 403) {
-    throw Object.assign(new Error(message), { status: 403 })
+    throw Object.assign(new Error(message), { status: 403, code, details })
   }
-  throw Object.assign(new Error(message), { status: res.status })
+  throw Object.assign(new Error(message), { status: res.status, code, details })
 }
 
 // Auth
@@ -89,7 +91,15 @@ export const getProductsPage = (params = {}) => {
   const suffix = search.toString() ? `?${search.toString()}` : ''
   return api(`/products${suffix}`).then(asPaginated)
 }
-export const getVendors = () => api('/vendors?page=1&pageSize=1000').then((result) => asPaginated(result).items)
+export const getVendors = (params = {}) => {
+  const search = new URLSearchParams()
+  const merged = { page: 1, pageSize: 1000, ...params }
+  Object.entries(merged).forEach(([key, value]) => {
+    if (value != null && value !== '') search.set(key, String(value))
+  })
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return api(`/vendors${suffix}`).then((result) => asPaginated(result).items)
+}
 export const getVendorsPage = (params = {}) => {
   const search = new URLSearchParams()
   Object.entries(params).forEach(([key, value]) => {
@@ -112,6 +122,16 @@ export const deleteProduct = (id) => api(`/products/${id}`, { method: 'DELETE' }
 
 export const patchCommissionPayout = (id, payoutStatus) =>
   api(`/commissions/${id}`, { method: 'PATCH', body: JSON.stringify({ payoutStatus }) })
+
+/** Practitioner: paginated list + global summary. Admin: use api('/commissions') for full payload. */
+export const getCommissionsPage = (params = {}) => {
+  const search = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== '') search.set(key, String(value))
+  })
+  const suffix = search.toString() ? `?${search.toString()}` : ''
+  return api(`/commissions${suffix}`)
+}
 
 /**
  * Upload a product image (admin). Sends multipart field "file".
@@ -145,7 +165,17 @@ export const createVendor = (payload) => api('/vendors', { method: 'POST', body:
 export const updateVendor = (id, payload) => api(`/vendors/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
 export const createUser = (payload) => api('/users', { method: 'POST', body: JSON.stringify(payload) })
 export const updateUser = (id, payload) => api(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
-export const getPractitionerPatients = () => api('/patients')
+export const getPractitionerPatients = (params = {}) => {
+  const search = new URLSearchParams()
+  if (params.q != null && params.q !== '') search.set('q', String(params.q))
+  if (params.page != null && params.page !== '') search.set('page', String(params.page))
+  if (params.limit != null && params.limit !== '') search.set('limit', String(params.limit))
+  const q = search.toString()
+  return api(`/patients${q ? `?${q}` : ''}`)
+}
+
+export const createPractitionerPatient = (body) =>
+  api('/patients', { method: 'POST', body: JSON.stringify(body) })
 
 // Carts (server-side; practitioner + patient)
 export const getCart = (params = {}) => {
@@ -156,6 +186,7 @@ export const getCart = (params = {}) => {
   const q = search.toString()
   return api(`/carts${q ? `?${q}` : ''}`)
 }
+export const getCartSummary = () => api('/carts/summary')
 export const addCartItem = (payload) =>
   api('/carts/items', { method: 'POST', body: JSON.stringify(payload) })
 export const updateCartItem = (itemId, quantity) =>
@@ -163,6 +194,8 @@ export const updateCartItem = (itemId, quantity) =>
 export const removeCartItem = (itemId) => api(`/carts/items/${itemId}`, { method: 'DELETE' })
 export const checkoutCart = (payload) =>
   api('/carts/checkout', { method: 'POST', body: JSON.stringify(payload) })
+export const clearCart = (payload = {}) =>
+  api('/carts/clear', { method: 'POST', body: JSON.stringify(payload) })
 
 // Orders
 export const getOrdersPage = (params = {}) => {
@@ -200,33 +233,61 @@ export async function startCheckout(orderId, successUrl, cancelUrl) {
   throw new Error('Invalid checkout response')
 }
 
-export async function mockMarkPaid(orderId) {
+/** Patient: pay multiple pending PATIENT orders in one Stripe session (e.g. new cart order + practitioner suggestions). */
+export async function startCheckoutOrders(orderIds, successUrl, cancelUrl) {
+  if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    throw new Error('orderIds required')
+  }
+  const data = await api('/payments/checkout', {
+    method: 'POST',
+    body: JSON.stringify({ orderIds, successUrl, cancelUrl }),
+  })
+  if (data?.url) {
+    window.location.href = data.url
+    return
+  }
+  if (data?.mode === 'mock' && data?.checkoutUrl) {
+    window.location.href = data.checkoutUrl
+    return
+  }
+  throw new Error('Invalid checkout response')
+}
+
+export async function mockMarkPaid(orderIdOrIds) {
+  const requestBody =
+    Array.isArray(orderIdOrIds) && orderIdOrIds.length
+      ? { orderIds: orderIdOrIds }
+      : { orderId: orderIdOrIds }
   const res = await fetch(`${BASE_URL}/payments/webhook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId }),
+    body: JSON.stringify(requestBody),
   })
   const raw = await res.text()
-  let body = null
+  let parsed = null
   if (raw) {
     try {
-      body = JSON.parse(raw)
+      parsed = JSON.parse(raw)
     } catch {
-      body = null
+      parsed = null
     }
   }
   if (!res.ok) {
     const msg =
-      (body && typeof body === 'object' && body.error?.message) ||
-      (typeof body === 'string' ? body : null) ||
+      (parsed && typeof parsed === 'object' && parsed.error?.message) ||
+      (typeof parsed === 'string' ? parsed : null) ||
       raw ||
       `Payment failed (${res.status})`
     throw Object.assign(new Error(String(msg)), { status: res.status })
   }
-  if (!body?.success || !body?.data) {
+  if (!parsed?.success || !parsed?.data) {
     throw new Error('Invalid mock payment response')
   }
-  const data = body.data
+  const data = parsed.data
+  if (data.orders && Array.isArray(data.orders)) {
+    if (!data.confirmed || !data.orders.length) throw new Error('Payment not confirmed')
+    return data
+  }
   if (!data.confirmed || data.order?.paymentStatus !== 'PAID') {
     throw new Error('Payment not confirmed')
   }

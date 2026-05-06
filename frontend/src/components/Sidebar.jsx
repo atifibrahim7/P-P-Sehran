@@ -9,12 +9,11 @@ import {
   Coins,
   FlaskConical,
   Sparkles,
-  ShoppingCart,
   ListOrdered,
   UserRound,
   Store,
 } from 'lucide-react'
-import { api, getCart, getOrdersPage, getProductsPage, getUsersPage, getVendorsPage } from '../api/client'
+import { api, getCommissionsPage, getOrdersPage, getProductsPage, getUsersPage, getVendorsPage } from '../api/client'
 import { useAuth } from '../auth/AuthProvider.jsx'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -54,36 +53,30 @@ export default function Sidebar({ onNavigate }) {
             commissions: commLen,
           })
         } else if (role === 'practitioner') {
-          const [os, rs, cartRes, commRes] = await Promise.allSettled([
+          const [os, rs, commRes] = await Promise.allSettled([
             getOrdersPage({ page: 1, pageSize: 1 }),
             api('/lab/results'),
-            getCart(),
-            api('/commissions'),
+            getCommissionsPage({ page: 1, pageSize: 1 }),
           ])
           if (!mounted) return
-          const cartItems =
-            cartRes.status === 'fulfilled' && cartRes.value?.cart?.items ? cartRes.value.cart.items.length : 0
-          const commList = commRes.status === 'fulfilled' && Array.isArray(commRes.value) ? commRes.value : []
-          const commPending = commList.filter((c) => c.payoutStatus !== 'PAID').length
+          const commPending =
+            commRes.status === 'fulfilled' && commRes.value?.summary?.pendingLineCount != null
+              ? Number(commRes.value.summary.pendingLineCount)
+              : 0
           setCounts({
             orders: os.status === 'fulfilled' ? os.value.pagination?.total ?? 0 : 0,
             results: rs.status === 'fulfilled' ? rs.value.length : 0,
-            cart: cartItems,
             commissions: commPending,
           })
         } else if (role === 'patient') {
-          const [os, rs, cartRes] = await Promise.allSettled([
+          const [os, rs] = await Promise.allSettled([
             getOrdersPage({ page: 1, pageSize: 1 }),
             api('/lab/results'),
-            getCart(),
           ])
           if (!mounted) return
-          const cartItems =
-            cartRes.status === 'fulfilled' && cartRes.value?.cart?.items ? cartRes.value.cart.items.length : 0
           setCounts({
             orders: os.status === 'fulfilled' ? os.value.pagination?.total ?? 0 : 0,
             results: rs.status === 'fulfilled' ? rs.value.length : 0,
-            cart: cartItems,
           })
         }
       } catch {
@@ -113,18 +106,26 @@ export default function Sidebar({ onNavigate }) {
       return [
         { label: 'Dashboard', to: '/practitioner', icon: LayoutDashboard },
         { label: 'Patients', to: '/practitioner/patients', icon: Users },
-        { label: 'Catalog', to: '/practitioner/catalog', icon: Package },
-        { label: 'Cart', to: '/practitioner/cart', icon: ShoppingCart, count: counts.cart },
-        { label: 'Orders', to: '/practitioner/orders', icon: ListOrdered, count: counts.orders },
-        { label: 'Commissions', to: '/practitioner/commissions', icon: Coins, count: counts.commissions },
+        { label: 'Catalog', to: '/practitioner/catalog', icon: Package, matchPrefix: '/practitioner/catalog' },
+        {
+          label: 'Orders',
+          to: '/practitioner/orders',
+          icon: ListOrdered,
+          count: counts.orders,
+          badgeCount: counts.commissions,
+        },
         { label: 'Recommendations', to: '/practitioner/recommendations', icon: Sparkles },
         { label: 'Test Results', to: '/practitioner/test-results', icon: FlaskConical, count: counts.results },
       ]
     }
     return [
       { label: 'Dashboard', to: '/patient', icon: LayoutDashboard },
-      { label: 'Cart', to: '/patient/cart', icon: ShoppingCart, count: counts.cart },
-      { label: 'Catalog', to: '/patient/catalog', icon: Store },
+      {
+        label: 'Catalog',
+        to: '/patient/catalog/lab-test',
+        icon: Store,
+        matchPrefix: '/patient/catalog',
+      },
       { label: 'Recommendations', to: '/patient/recommendations', icon: Sparkles },
       { label: 'Orders', to: '/patient/orders', icon: ListOrdered, count: counts.orders },
       { label: 'Test Results', to: '/patient/test-results', icon: FlaskConical, count: counts.results },
@@ -145,7 +146,8 @@ export default function Sidebar({ onNavigate }) {
       <Separator className="mb-1 bg-sidebar-border" />
       <nav className="flex flex-col gap-0.5">
         {items.map((item) => {
-          const active = location.pathname === item.to
+          const active =
+            item.matchPrefix != null ? location.pathname.startsWith(item.matchPrefix) : location.pathname === item.to
           const Icon = item.icon
           return (
             <Button
@@ -160,10 +162,19 @@ export default function Sidebar({ onNavigate }) {
             >
               <Icon className="size-4 shrink-0 opacity-90" />
               <span className="flex-1 truncate text-left">{item.label}</span>
-              {item.count != null ? (
-                <Badge variant="outline" className="ml-auto shrink-0 text-[10px] tabular-nums">
-                  {item.count}
-                </Badge>
+              {item.count != null || (item.badgeCount != null && item.badgeCount > 0) ? (
+                <span className="ml-auto flex shrink-0 gap-1">
+                  {item.count != null ? (
+                    <Badge variant="outline" className="text-[10px] tabular-nums">
+                      {item.count}
+                    </Badge>
+                  ) : null}
+                  {item.badgeCount != null && item.badgeCount > 0 ? (
+                    <Badge variant="secondary" className="text-[10px] tabular-nums" title="Pending commission payouts">
+                      {item.badgeCount}
+                    </Badge>
+                  ) : null}
+                </span>
               ) : null}
             </Button>
           )

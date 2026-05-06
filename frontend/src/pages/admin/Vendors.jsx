@@ -29,6 +29,27 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+function vendorTypeLabel(type) {
+  if (type === 'both') return 'Lab & supplement'
+  if (type === 'lab') return 'Lab'
+  if (type === 'supplement') return 'Supplement'
+  return type
+}
+
+function capsToApiType(lab, supplement) {
+  if (lab && supplement) return 'both'
+  if (lab) return 'lab'
+  if (supplement) return 'supplement'
+  return null
+}
+
+function apiTypeToCaps(type) {
+  if (type === 'both') return { lab: true, supplement: true }
+  if (type === 'lab') return { lab: true, supplement: false }
+  if (type === 'supplement') return { lab: false, supplement: true }
+  return { lab: true, supplement: false }
+}
+
 export default function AdminVendors() {
   const [vendors, setVendors] = useState([])
   const [pagination, setPagination] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 })
@@ -36,7 +57,7 @@ export default function AdminVendors() {
   const [error, setError] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [form, setForm] = useState({ name: '', type: 'lab' })
+  const [form, setForm] = useState({ name: '', lab: true, supplement: false })
 
   const load = async () => {
     try {
@@ -58,17 +79,22 @@ export default function AdminVendors() {
 
   const submit = async (e) => {
     e.preventDefault()
+    const apiType = capsToApiType(form.lab, form.supplement)
+    if (!apiType) {
+      setError(Object.assign(new Error('Select at least one: Lab or Supplement'), { name: 'ValidationError' }))
+      return
+    }
     try {
       setError(null)
       if (editingId) {
-        await updateVendor(editingId, { name: form.name, type: form.type })
+        await updateVendor(editingId, { name: form.name, type: apiType })
       } else {
-        await createVendor({ name: form.name, type: form.type })
+        await createVendor({ name: form.name, type: apiType })
       }
       await load()
       setEditingId(null)
       setDialogOpen(false)
-      setForm({ name: '', type: 'lab' })
+      setForm({ name: '', lab: true, supplement: false })
     } catch (e) {
       setError(e)
     }
@@ -92,7 +118,7 @@ export default function AdminVendors() {
             size="sm"
             onClick={() => {
               setEditingId(null)
-              setForm({ name: '', type: 'lab' })
+              setForm({ name: '', lab: true, supplement: false })
               setDialogOpen(true)
             }}
           >
@@ -104,7 +130,7 @@ export default function AdminVendors() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Capabilities</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -119,7 +145,7 @@ export default function AdminVendors() {
                 vendors.map((v) => (
                   <TableRow key={v.id}>
                     <TableCell>{v.name}</TableCell>
-                    <TableCell>{v.type}</TableCell>
+                    <TableCell>{vendorTypeLabel(v.type)}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         type="button"
@@ -128,7 +154,7 @@ export default function AdminVendors() {
                         aria-label="Edit vendor"
                         onClick={() => {
                           setEditingId(v.id)
-                          setForm({ name: v.name, type: v.type })
+                          setForm({ name: v.name, ...apiTypeToCaps(v.type) })
                           setDialogOpen(true)
                         }}
                       >
@@ -199,7 +225,7 @@ export default function AdminVendors() {
           setDialogOpen(open)
           if (!open) {
             setEditingId(null)
-            setForm({ name: '', type: 'lab' })
+            setForm({ name: '', lab: true, supplement: false })
           }
         }}
       >
@@ -212,18 +238,30 @@ export default function AdminVendors() {
               <Label htmlFor="v-name">Name</Label>
               <Input id="v-name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
             </div>
-            <div className="space-y-2">
-              <Label>Type</Label>
-              <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lab">Lab</SelectItem>
-                  <SelectItem value="supplement">Supplement</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-medium leading-none">Capabilities</legend>
+              <p className="text-xs text-muted-foreground">A vendor can supply lab tests, supplements, or both.</p>
+              <div className="flex flex-col gap-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-input accent-primary"
+                    checked={form.lab}
+                    onChange={(e) => setForm((f) => ({ ...f, lab: e.target.checked }))}
+                  />
+                  Lab
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded border-input accent-primary"
+                    checked={form.supplement}
+                    onChange={(e) => setForm((f) => ({ ...f, supplement: e.target.checked }))}
+                  />
+                  Supplement
+                </label>
+              </div>
+            </fieldset>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                 Cancel
