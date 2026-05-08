@@ -33,6 +33,10 @@ function serializeOrder(order) {
 		totalAmount: Number(order.totalAmount),
 		status: order.status,
 		paymentStatus: order.paymentStatus,
+		inuviOrderId: order.inuviOrderId ?? null,
+		inuviSyncError: order.inuviSyncError ?? null,
+		inuviSyncedAt:
+			order.inuviSyncedAt instanceof Date ? order.inuviSyncedAt.toISOString() : order.inuviSyncedAt ?? null,
 	};
 	const pru = order.practitioner?.user;
 	if (pru) {

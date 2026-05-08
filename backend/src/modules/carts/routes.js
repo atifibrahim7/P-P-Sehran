@@ -128,7 +128,10 @@ async function getOrCreatePatientDirectCart(patientProfileId) {
 }
 
 async function ensurePatientProfile(userId) {
-	let patient = await prisma.patient.findUnique({ where: { userId: Number(userId) } });
+	const user = await prisma.user.findFirst({ where: { id: Number(userId), role: 'PATIENT', deletedAt: null } });
+	if (!user) return null;
+
+	let patient = await prisma.patient.findFirst({ where: { userId: Number(userId), deletedAt: null } });
 	if (!patient) {
 		patient = await prisma.patient.create({
 			data: { userId: Number(userId), practitionerId: null },
@@ -248,7 +251,7 @@ router.get('/', authenticateToken, async (req, res) => {
 		let cart;
 		if (forPatientUserId) {
 			const patient = await prisma.patient.findFirst({
-				where: { userId: forPatientUserId },
+				where: { userId: forPatientUserId, deletedAt: null, user: { deletedAt: null } },
 				include: { user: true },
 			});
 			if (!patient) return badRequest(res, 'Patient not found for this user id');
@@ -262,6 +265,7 @@ router.get('/', authenticateToken, async (req, res) => {
 	}
 	if (role === 'patient') {
 		const patient = await ensurePatientProfile(req.user.userId);
+		if (!patient) return res.status(403).json({ success: false, error: { message: 'Patient profile not found' } });
 		const c = patient.practitionerId
 			? await getOrCreateCart(patient.practitionerId, 'PATIENT', patient.id)
 			: await getOrCreatePatientDirectCart(patient.id);
@@ -280,7 +284,7 @@ router.post('/clear', authenticateToken, async (req, res) => {
 		let cartRow;
 		if (forPatientUserId) {
 			const patient = await prisma.patient.findFirst({
-				where: { userId: forPatientUserId },
+				where: { userId: forPatientUserId, deletedAt: null, user: { deletedAt: null } },
 			});
 			if (!patient) return badRequest(res, 'Patient not found for this user id');
 			cartRow = await getOrCreateCart(pr.id, 'PATIENT', patient.id);
@@ -293,6 +297,7 @@ router.post('/clear', authenticateToken, async (req, res) => {
 	}
 	if (req.user.role === 'patient') {
 		const patient = await ensurePatientProfile(req.user.userId);
+		if (!patient) return res.status(403).json({ success: false, error: { message: 'Patient profile not found' } });
 		const cartRow = patient.practitionerId
 			? await getOrCreateCart(patient.practitionerId, 'PATIENT', patient.id)
 			: await getOrCreatePatientDirectCart(patient.id);
@@ -336,7 +341,7 @@ router.post('/items', authenticateToken, async (req, res) => {
 		let cartRow;
 		if (forPatientUserId) {
 			const patient = await prisma.patient.findFirst({
-				where: { userId: forPatientUserId },
+				where: { userId: forPatientUserId, deletedAt: null, user: { deletedAt: null } },
 			});
 			if (!patient) return badRequest(res, 'Patient not found for this user id');
 			cartRow = await getOrCreateCart(pr.id, 'PATIENT', patient.id);
@@ -383,6 +388,7 @@ router.post('/items', authenticateToken, async (req, res) => {
 
 	if (req.user.role === 'patient') {
 		const patient = await ensurePatientProfile(req.user.userId);
+		if (!patient) return res.status(403).json({ success: false, error: { message: 'Patient profile not found' } });
 		const cartRow = patient.practitionerId
 			? await getOrCreateCart(patient.practitionerId, 'PATIENT', patient.id)
 			: await getOrCreatePatientDirectCart(patient.id);
@@ -435,7 +441,9 @@ router.patch('/items/:itemId', authenticateToken, async (req, res) => {
 			return res.status(403).json({ success: false, error: { message: 'Forbidden' } });
 		}
 	} else if (req.user.role === 'patient') {
-		const patient = await prisma.patient.findUnique({ where: { userId: Number(req.user.userId) } });
+		const patient = await prisma.patient.findFirst({
+			where: { userId: Number(req.user.userId), deletedAt: null, user: { deletedAt: null } },
+		});
 		if (!patient || item.cart.patientId !== patient.id) {
 			return res.status(403).json({ success: false, error: { message: 'Forbidden' } });
 		}
@@ -465,7 +473,9 @@ router.delete('/items/:itemId', authenticateToken, async (req, res) => {
 			return res.status(403).json({ success: false, error: { message: 'Forbidden' } });
 		}
 	} else if (req.user.role === 'patient') {
-		const patient = await prisma.patient.findUnique({ where: { userId: Number(req.user.userId) } });
+		const patient = await prisma.patient.findFirst({
+			where: { userId: Number(req.user.userId), deletedAt: null, user: { deletedAt: null } },
+		});
 		if (!patient || item.cart.patientId !== patient.id) {
 			return res.status(403).json({ success: false, error: { message: 'Forbidden' } });
 		}
@@ -508,7 +518,7 @@ router.post('/checkout', authenticateToken, async (req, res, next) => {
 
 			if (scope === 'patient' && patientUserId) {
 				const patient = await prisma.patient.findFirst({
-					where: { userId: Number(patientUserId) },
+					where: { userId: Number(patientUserId), deletedAt: null, user: { deletedAt: null } },
 				});
 				if (!patient) return badRequest(res, 'Patient not found for this user id');
 				const cart = await prisma.cart.findFirst({
@@ -532,6 +542,7 @@ router.post('/checkout', authenticateToken, async (req, res, next) => {
 
 		if (req.user.role === 'patient') {
 			const patient = await ensurePatientProfile(uid);
+			if (!patient) return res.status(403).json({ success: false, error: { message: 'Patient profile not found' } });
 			const cart = patient.practitionerId
 				? await prisma.cart.findFirst({
 						where: {

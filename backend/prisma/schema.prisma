@@ -13,6 +13,7 @@ model User {
   password  String
   role      Role
   createdAt DateTime @default(now())
+  deletedAt DateTime?
 
   practitioner Practitioner?
   patient      Patient?
@@ -23,10 +24,56 @@ model Practitioner {
   userId    Int    @unique
   user      User   @relation(fields: [userId], references: [id])
 
+  /** Inuvi / clinical profile for self-orders (mirrors Patient shape) */
+  title                   String?       @db.VarChar(10)
+  forenames               String?       @db.VarChar(100)
+  surname                 String?       @db.VarChar(100)
+  dateOfBirth             DateTime?     @db.Date
+  gender                  PatientGender @default(UNKNOWN)
+  policyNumber            String?       @unique @db.VarChar(100)
+  clientReference2        String?       @db.VarChar(100)
+  nationalInsuranceNumber String?       @db.VarChar(50)
+  smokerStatus            SmokerStatus  @default(UNKNOWN)
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @default(now()) @updatedAt
+
   patients  Patient[]
   orders    Order[]
   commissions Commission[]
   carts     Cart[]
+  addresses PractitionerAddress[]
+  contacts  PractitionerContact[]
+}
+
+model PractitionerAddress {
+  id            Int      @id @default(autoincrement())
+  practitionerId Int
+  addressTypeId Int
+  addressLine1  String   @db.VarChar(255)
+  addressLine2  String?  @db.VarChar(255)
+  addressLine3  String?  @db.VarChar(255)
+  city          String   @db.VarChar(100)
+  county        String?  @db.VarChar(100)
+  country       String   @db.VarChar(100)
+  postcode      String   @db.VarChar(20)
+  isPreferred   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  practitioner Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+
+  @@index([practitionerId])
+}
+
+model PractitionerContact {
+  id              Int       @id @default(autoincrement())
+  practitionerId  Int
+  phoneNumber     String    @db.VarChar(20)
+  phoneType       PhoneType
+  createdAt       DateTime  @default(now())
+
+  practitioner Practitioner @relation(fields: [practitionerId], references: [id], onDelete: Cascade)
+
+  @@index([practitionerId])
 }
 
 model Patient {
@@ -44,6 +91,7 @@ model Patient {
   smokerStatus              SmokerStatus  @default(UNKNOWN)
   createdAt                 DateTime      @default(now())
   updatedAt                 DateTime      @updatedAt
+  deletedAt                 DateTime?
 
   user           User   @relation(fields: [userId], references: [id])
   practitioner   Practitioner? @relation(fields: [practitionerId], references: [id])
@@ -106,6 +154,8 @@ model Product {
   shopifyHandle       String? @db.VarChar(255)
   shopifyProductId    String? @db.VarChar(64)
   shopifyVariantId    String? @db.VarChar(64)
+  /** Inuvi exam type id for POST /orders/{id}/orderexams */
+  inuviExamTypeId     Int?
 
   vendor              Vendor @relation(fields: [vendorId], references: [id])
   orderItems          OrderItem[]
@@ -179,6 +229,10 @@ model Order {
   status         OrderStatus @default(PENDING)
   paymentStatus  PaymentStatus @default(PENDING)
   createdAt      DateTime @default(now())
+
+  inuviOrderId   String?   @db.VarChar(36)
+  inuviSyncError String?   @db.Text
+  inuviSyncedAt  DateTime?
 
   patient        Patient? @relation(fields: [patientId], references: [id])
   practitioner   Practitioner? @relation(fields: [practitionerId], references: [id])

@@ -29,7 +29,36 @@ async function main() {
 				role: 'PRACTITIONER',
 			},
 		});
-		const practitioner = await tx.practitioner.create({ data: { userId: practitionerUser.id } });
+		const practitioner = await tx.practitioner.create({
+			data: {
+				userId: practitionerUser.id,
+				title: 'Dr',
+				forenames: 'Jane',
+				surname: 'Smith',
+				dateOfBirth: new Date('1985-06-15T00:00:00.000Z'),
+				gender: 'FEMALE',
+				policyNumber: 'PRAC-SEED-001',
+				smokerStatus: 'NON_SMOKER',
+			},
+		});
+		await tx.practitionerAddress.create({
+			data: {
+				practitionerId: practitioner.id,
+				addressTypeId: 0,
+				addressLine1: '10 Seed Street',
+				city: 'London',
+				country: 'United Kingdom',
+				postcode: 'EC1A 1BB',
+				isPreferred: true,
+			},
+		});
+		await tx.practitionerContact.create({
+			data: {
+				practitionerId: practitioner.id,
+				phoneNumber: '+447700900000',
+				phoneType: 'MOBILE',
+			},
+		});
 
 		const patientUser = await tx.user.create({
 			data: {
@@ -39,7 +68,37 @@ async function main() {
 				role: 'PATIENT',
 			},
 		});
-		await tx.patient.create({ data: { userId: patientUser.id, practitionerId: practitioner.id } });
+		const patient = await tx.patient.create({
+			data: {
+				userId: patientUser.id,
+				practitionerId: practitioner.id,
+				title: 'Mr',
+				forenames: 'John',
+				surname: 'Doe',
+				dateOfBirth: new Date('1992-03-20T00:00:00.000Z'),
+				gender: 'MALE',
+				policyNumber: 'PAT-SEED-001',
+				smokerStatus: 'UNKNOWN',
+			},
+		});
+		await tx.address.create({
+			data: {
+				patientId: patient.id,
+				addressTypeId: 0,
+				addressLine1: '20 Patient Road',
+				city: 'Manchester',
+				country: 'United Kingdom',
+				postcode: 'M1 1AE',
+				isPreferred: true,
+			},
+		});
+		await tx.contact.create({
+			data: {
+				patientId: patient.id,
+				phoneNumber: '+447700900001',
+				phoneType: 'MOBILE',
+			},
+		});
 
 		const labVendor = await tx.vendor.create({
 			data: { name: 'Acme Labs', type: 'LAB' },
@@ -47,6 +106,9 @@ async function main() {
 		const suppVendor = await tx.vendor.create({
 			data: { name: 'NutriSupp', type: 'SUPPLEMENT' },
 		});
+
+		const defaultExam =
+			Number.parseInt(process.env.INUVI_DEFAULT_EXAM_TYPE_ID || '1', 10) || 1;
 
 		await tx.product.createMany({
 			data: [
@@ -59,6 +121,7 @@ async function main() {
 					patientPrice: 60,
 					practitionerPrice: 60,
 					imageUrl: null,
+					inuviExamTypeId: defaultExam,
 				},
 				{
 					name: 'Vitamin D Supplement 2000IU',

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createPractitionerPatient } from '../../api/client'
+import { createPractitionerPatient, updatePractitionerPatient } from '../../api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,8 +23,44 @@ import {
 /**
  * @param {(created: { userId: number, patientId: number, name: string, email: string }) => void} [props.onCreated]
  */
-export default function PractitionerCreatePatientDialog({ open, onOpenChange, onCreated, title, description }) {
+export default function PractitionerCreatePatientDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  title,
+  description,
+  patient,
+  mode = 'create',
+}) {
   const STEPS = ['Basic info', 'Clinical & account', 'Address & contact']
+  const dialogTitle = title ?? (mode === 'edit' ? 'Edit patient' : 'Add patient')
+
+  const createEmptyAddress = () => ({
+    addressTypeId: '0',
+    addressLine1: '',
+    addressLine2: '',
+    addressLine3: '',
+    city: '',
+    county: '',
+    country: '',
+    postcode: '',
+    isPreferred: false,
+  })
+
+  const createEmptyContact = () => ({ phoneNumber: '', phoneType: 'Mobile' })
+
+  const apiGenderToForm = (value) => {
+    if (value === 'MALE') return 'Male'
+    if (value === 'FEMALE') return 'Female'
+    return 'Unknown'
+  }
+
+  const apiSmokerToForm = (value) => {
+    if (value === 'NON_SMOKER') return 'NonSmoker'
+    if (value === 'SMOKER') return 'Smoker'
+    return 'Unknown'
+  }
+
   const [email, setEmail] = useState('')
   const [titleText, setTitleText] = useState('')
   const [forenames, setForenames] = useState('')
@@ -45,43 +81,67 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
 
   useEffect(() => {
     if (!open) return
-    setEmail('')
-    setTitleText('')
-    setForenames('')
-    setSurname('')
-    setDateOfBirth('')
-    setGender('Unknown')
-    setPolicyNumber('')
-    setClientReference2('')
-    setNationalInsuranceNumber('')
-    setSmokerStatus('Unknown')
-    setPassword('')
-    setAddresses([])
-    setContacts([])
+    if (patient) {
+      setEmail(patient.email ?? '')
+      setTitleText(patient.title ?? '')
+      setForenames(patient.forenames ?? '')
+      setSurname(patient.surname ?? '')
+      setDateOfBirth(patient.dateOfBirth ?? '')
+      setGender(apiGenderToForm(patient.gender))
+      setPolicyNumber(patient.policyNumber ?? '')
+      setClientReference2(patient.clientReference2 ?? '')
+      setNationalInsuranceNumber(patient.nationalInsuranceNumber ?? '')
+      setSmokerStatus(apiSmokerToForm(patient.smokerStatus))
+      setPassword('')
+      setAddresses(
+        Array.isArray(patient.addresses) && patient.addresses.length
+          ? patient.addresses.map((address) => ({
+              addressTypeId: String(address.addressTypeId ?? 0),
+              addressLine1: address.addressLine1 ?? '',
+              addressLine2: address.addressLine2 ?? '',
+              addressLine3: address.addressLine3 ?? '',
+              city: address.city ?? '',
+              county: address.county ?? '',
+              country: address.country ?? '',
+              postcode: address.postcode ?? '',
+              isPreferred: Boolean(address.isPreferred),
+            }))
+          : [createEmptyAddress()],
+      )
+      setContacts(
+        Array.isArray(patient.contacts) && patient.contacts.length
+          ? patient.contacts.map((contact) => ({
+              phoneNumber: contact.phoneNumber ?? '',
+              phoneType: contact.phoneType ?? 'Mobile',
+            }))
+          : [createEmptyContact()],
+      )
+    } else {
+      setEmail('')
+      setTitleText('')
+      setForenames('')
+      setSurname('')
+      setDateOfBirth('')
+      setGender('Unknown')
+      setPolicyNumber('')
+      setClientReference2('')
+      setNationalInsuranceNumber('')
+      setSmokerStatus('Unknown')
+      setPassword('')
+      setAddresses([])
+      setContacts([])
+    }
     setError(null)
     setStepError('')
     setStep(0)
-  }, [open])
+  }, [open, patient])
 
   const addAddress = () => {
-    setAddresses((prev) => [
-      ...prev,
-      {
-        addressTypeId: '0',
-        addressLine1: '',
-        addressLine2: '',
-        addressLine3: '',
-        city: '',
-        county: '',
-        country: '',
-        postcode: '',
-        isPreferred: false,
-      },
-    ])
+    setAddresses((prev) => [...prev, createEmptyAddress()])
   }
 
   const addContact = () => {
-    setContacts((prev) => [...prev, { phoneNumber: '', phoneType: 'Mobile' }])
+    setContacts((prev) => [...prev, createEmptyContact()])
   }
 
   const updateAddress = (index, patch) => {
@@ -112,6 +172,24 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
         return 'Password must be at least 8 characters when provided.'
       }
     }
+    if (currentStep === 2) {
+      if (!addresses.length) return 'Please add at least one address.'
+      if (!contacts.length) return 'Please add at least one contact.'
+      if (
+        addresses.some(
+          (address) =>
+            !address.addressLine1.trim() ||
+            !address.city.trim() ||
+            !address.country.trim() ||
+            !address.postcode.trim(),
+        )
+      ) {
+        return 'Please complete each address before creating the patient.'
+      }
+      if (contacts.some((contact) => !contact.phoneNumber.trim())) {
+        return 'Please complete each contact before creating the patient.'
+      }
+    }
     return ''
   }
 
@@ -122,7 +200,14 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
       return
     }
     setStepError('')
-    setStep((prev) => Math.min(prev + 1, STEPS.length - 1))
+    setStep((prev) => {
+      const next = Math.min(prev + 1, STEPS.length - 1)
+      if (next === 2) {
+        setAddresses((current) => (current.length ? current : [createEmptyAddress()]))
+        setContacts((current) => (current.length ? current : [createEmptyContact()]))
+      }
+      return next
+    })
   }
 
   const handlePreviousStep = () => {
@@ -137,6 +222,20 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
       setStepError(stepValidationError)
       return
     }
+
+    if (step < STEPS.length - 1) {
+      setStepError('')
+      setStep((prev) => {
+        const next = Math.min(prev + 1, STEPS.length - 1)
+        if (next === 2) {
+          setAddresses((current) => (current.length ? current : [createEmptyAddress()]))
+          setContacts((current) => (current.length ? current : [createEmptyContact()]))
+        }
+        return next
+      })
+      return
+    }
+
     setStepError('')
     setError(null)
     setBusy(true)
@@ -154,32 +253,24 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
           ? { nationalInsuranceNumber: nationalInsuranceNumber.trim() }
           : {}),
         smokerStatus,
-        ...(addresses.length
-          ? {
-              addresses: addresses.map((address) => ({
-                addressTypeId: Number(address.addressTypeId),
-                addressLine1: address.addressLine1.trim(),
-                ...(address.addressLine2.trim() ? { addressLine2: address.addressLine2.trim() } : {}),
-                ...(address.addressLine3.trim() ? { addressLine3: address.addressLine3.trim() } : {}),
-                city: address.city.trim(),
-                ...(address.county.trim() ? { county: address.county.trim() } : {}),
-                country: address.country.trim(),
-                postcode: address.postcode.trim(),
-                isPreferred: Boolean(address.isPreferred),
-              })),
-            }
-          : {}),
-        ...(contacts.length
-          ? {
-              contacts: contacts.map((contact) => ({
-                phoneNumber: contact.phoneNumber.trim(),
-                phoneType: contact.phoneType,
-              })),
-            }
-          : {}),
+        addresses: addresses.map((address) => ({
+          addressTypeId: Number(address.addressTypeId),
+          addressLine1: address.addressLine1.trim(),
+          ...(address.addressLine2.trim() ? { addressLine2: address.addressLine2.trim() } : {}),
+          ...(address.addressLine3.trim() ? { addressLine3: address.addressLine3.trim() } : {}),
+          city: address.city.trim(),
+          ...(address.county.trim() ? { county: address.county.trim() } : {}),
+          country: address.country.trim(),
+          postcode: address.postcode.trim(),
+          isPreferred: Boolean(address.isPreferred),
+        })),
+        contacts: contacts.map((contact) => ({
+          phoneNumber: contact.phoneNumber.trim(),
+          phoneType: contact.phoneType,
+        })),
         ...(password.trim() ? { password: password.trim() } : {}),
       }
-      const out = await createPractitionerPatient(body)
+      const out = mode === 'edit' && patient?.userId ? await updatePractitionerPatient(patient.userId, body) : await createPractitionerPatient(body)
       const row = {
         userId: out.userId,
         patientId: out.patientId,
@@ -200,7 +291,7 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl" showCloseButton>
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>{title ?? 'Add patient'}</DialogTitle>
+            <DialogTitle>{dialogTitle}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : null}
           </DialogHeader>
 
@@ -567,7 +658,7 @@ export default function PractitionerCreatePatientDialog({ open, onOpenChange, on
               </Button>
             ) : (
               <Button type="submit" disabled={busy}>
-                {busy ? 'Creating…' : 'Create patient'}
+                {busy ? (mode === 'edit' ? 'Saving…' : 'Creating…') : mode === 'edit' ? 'Save patient' : 'Create patient'}
               </Button>
             )}
           </DialogFooter>

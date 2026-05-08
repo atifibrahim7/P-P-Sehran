@@ -9,6 +9,7 @@ const {
 	loadOrderWithRelations,
 } = require('../../lib/serialize');
 const { sendOrderCreatedEmail, sendOrderPaidEmail } = require('../../lib/mail/orderNotification');
+const { syncOrderToInuvi } = require('../../lib/inuvi/syncOrder');
 
 const ORDER_STATES = ['pending', 'paid', 'processing', 'completed'];
 
@@ -50,8 +51,8 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		if (!practitioner) throw Object.assign(new Error('Invalid practitionerId'), { status: 400 });
 		practitionerDbId = practitioner.id;
 	} else {
-		const patient = await prisma.patient.findUnique({
-			where: { userId: Number(patientUserId) },
+		const patient = await prisma.patient.findFirst({
+			where: { userId: Number(patientUserId), deletedAt: null, user: { deletedAt: null } },
 		});
 		if (!patient) throw Object.assign(new Error('Invalid patientId'), { status: 400 });
 		patientProfileId = patient.id;
@@ -122,9 +123,29 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 		console.warn('[email:order-created] failed', order.id, err?.message || err);
 	}
 
+	const refreshed = await prisma.order.findUnique({
+		where: { id: order.id },
+		include: orderInclude,
+	});
 	return {
-		order: serializeOrder(order),
-		items: order.items.map(serializeOrderItem),
+		order: serializeOrder(refreshed),
+		items: refreshed.items.map(serializeOrderItem),
+	};
+}
+
+async function retryInuviSync(orderId) {
+	const id = Number(orderId);
+	if (Number.isNaN(id)) throw Object.assign(new Error('Order not found'), { status: 404 });
+	const row = await prisma.order.findUnique({ where: { id }, select: { inuviOrderId: true } });
+	if (!row) throw Object.assign(new Error('Order not found'), { status: 404 });
+	if (row.inuviOrderId) {
+		throw Object.assign(new Error('Order already linked to Inuvi'), { status: 400 });
+	}
+	await syncOrderToInuvi(id);
+	const full = await loadOrderWithRelations(id);
+	return {
+		order: serializeOrder(full),
+		items: full.items.map(serializeOrderItem),
 	};
 }
 
@@ -165,6 +186,13 @@ async function markPaid(orderId) {
 
 	const full = await loadOrderWithRelations(id);
 	if (!wasAlreadyPaid) {
+		try {
+			await syncOrderToInuvi(id);
+		} catch (err) {
+			// eslint-disable-next-line no-console
+			console.warn('[inuvi:sync] unexpected failure', id, err?.message || err);
+		}
+
 		try {
 			await sendOrderPaidEmail(full);
 		} catch (err) {
@@ -214,7 +242,7 @@ async function listOrdersPageForUser(user, query = {}) {
 		}
 		clauses.push({ practitionerId: pr.id });
 	} else if (user.role === 'patient') {
-		const pt = await prisma.patient.findUnique({ where: { userId: uid } });
+		const pt = await prisma.patient.findFirst({ where: { userId: uid, deletedAt: null, user: { deletedAt: null } } });
 		if (!pt) {
 			return paginateResult([], page, pageSize, 0);
 		}
@@ -259,4 +287,4 @@ async function listOrdersPageForUser(user, query = {}) {
 	return paginateResult(items, page, pageSize, total);
 }
 
-module.exports = { ORDER_STATES, createOrder, markPaid, listOrdersPageForUser };
+module.exports = { ORDER_STATES, createOrder, markPaid, listOrdersPageForUser, retryInuviSync };

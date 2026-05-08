@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { getOrder, startCheckout } from '../../api/client'
+import { getOrder, retryOrderInuviSync, startCheckout } from '../../api/client'
 import { useAuth } from '../../auth/AuthProvider.jsx'
 import OrderPaymentPanel from '../../components/order/OrderPaymentPanel.jsx'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 export default function OrderDetail() {
   const { id } = useParams()
@@ -14,6 +15,7 @@ export default function OrderDetail() {
   const [error, setError] = useState(null)
   const [cancelMsg, setCancelMsg] = useState(null)
   const [checkoutBusy, setCheckoutBusy] = useState(false)
+  const [inuviBusy, setInuviBusy] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -66,6 +68,20 @@ export default function OrderDetail() {
       { replace: true },
     )
   }, [cancelFlag, setSearchParams])
+
+  const retryInuvi = async () => {
+    if (!detail?.order?.id) return
+    setInuviBusy(true)
+    setError(null)
+    try {
+      const data = await retryOrderInuviSync(detail.order.id)
+      setDetail(data)
+    } catch (e) {
+      setError(e)
+    } finally {
+      setInuviBusy(false)
+    }
+  }
 
   const checkout = async () => {
     if (!detail?.order) return
@@ -121,8 +137,47 @@ export default function OrderDetail() {
   const amountLabel =
     order.type === 'patient' ? 'Amount due (patient total)' : 'Amount due (practitioner total)'
 
+  const showInuviAdmin = user?.role === 'admin'
+  const inuviPublic =
+    Boolean(order.inuviOrderId) || Boolean(order.inuviSyncError) || Boolean(order.inuviSyncedAt)
+
   return (
     <div className="space-y-6">
+      {inuviPublic ? (
+        <Alert variant={order.inuviSyncError && !order.inuviOrderId ? 'destructive' : 'default'}>
+          <AlertTitle>Inuvi</AlertTitle>
+          <AlertDescription className="space-y-1 text-sm">
+            {order.inuviOrderId ? (
+              <p>
+                <span className="text-muted-foreground">Order ID: </span>
+                <span className="font-mono text-xs">{order.inuviOrderId}</span>
+              </p>
+            ) : null}
+            {order.inuviSyncedAt ? (
+              <p className="text-muted-foreground">Last synced: {new Date(order.inuviSyncedAt).toLocaleString()}</p>
+            ) : null}
+            {order.inuviSyncError ? (
+              <p className="whitespace-pre-wrap break-all text-xs">{order.inuviSyncError}</p>
+            ) : null}
+            {showInuviAdmin && !order.inuviOrderId ? (
+              <Button type="button" variant="outline" size="sm" className="mt-2" disabled={inuviBusy} onClick={retryInuvi}>
+                {inuviBusy ? 'Retrying…' : 'Retry Inuvi sync'}
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : showInuviAdmin ? (
+        <Alert>
+          <AlertTitle>Inuvi</AlertTitle>
+          <AlertDescription className="flex flex-col gap-2 text-sm">
+            <span className="text-muted-foreground">No Inuvi link yet.</span>
+            <Button type="button" variant="outline" size="sm" className="w-fit" disabled={inuviBusy} onClick={retryInuvi}>
+              {inuviBusy ? 'Retrying…' : 'Retry Inuvi sync'}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <OrderPaymentPanel
         order={order}
         items={items}

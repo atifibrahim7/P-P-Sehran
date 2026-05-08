@@ -7,7 +7,7 @@ const { normalizeEmail } = require('../../lib/email');
 async function login(email, password) {
 	const normalized = normalizeEmail(email);
 	if (!normalized) return null;
-	const user = await prisma.user.findUnique({ where: { email: normalized } });
+	const user = await prisma.user.findFirst({ where: { email: normalized, deletedAt: null } });
 	if (!user) return null;
 	const ok = await bcrypt.compare(password, user.password);
 	if (!ok) return null;

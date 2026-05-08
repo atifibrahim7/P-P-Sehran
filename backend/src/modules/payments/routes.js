@@ -40,8 +40,8 @@ async function loadOrdersForPatientCheckout(orderIds, patientUserId) {
 		throw Object.assign(new Error('orderId or orderIds required'), { status: 400 });
 	}
 
-	const patient = await prisma.patient.findUnique({
-		where: { userId: Number(patientUserId) },
+	const patient = await prisma.patient.findFirst({
+		where: { userId: Number(patientUserId), deletedAt: null, user: { deletedAt: null } },
 	});
 	if (!patient) throw Object.assign(new Error('Patient profile not found'), { status: 403 });
 

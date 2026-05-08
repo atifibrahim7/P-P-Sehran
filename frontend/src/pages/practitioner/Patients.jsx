@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingBag, Search, UserRound } from 'lucide-react'
-import { getPractitionerPatients } from '../../api/client'
+import { Eye, Pencil, ShoppingBag, Search, UserRound } from 'lucide-react'
+import { getPractitionerPatient, getPractitionerPatients } from '../../api/client'
 import PractitionerCreatePatientDialog from '../../components/practitioner/PractitionerCreatePatientDialog.jsx'
+import PractitionerPatientDetailsDialog from '../../components/practitioner/PractitionerPatientDetailsDialog.jsx'
 import {
   PRACTITIONER_PATIENT_HINT_KEY,
   PRACTITIONER_PATIENT_USER_KEY,
@@ -35,6 +36,10 @@ export default function PractitionerPatients() {
   const [remoteLoading, setRemoteLoading] = useState(false)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [selectedPatient, setSelectedPatient] = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const load = useCallback(async (q, p) => {
     try {
@@ -86,6 +91,37 @@ export default function PractitionerPatients() {
     navigate('/practitioner/catalog/lab-test')
   }
 
+  const loadPatient = useCallback(async (userId) => {
+    setDetailLoading(true)
+    try {
+      return await getPractitionerPatient(userId)
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [])
+
+  const openPatientDetails = async (row) => {
+    try {
+      setError(null)
+      const data = await loadPatient(row.userId)
+      setSelectedPatient(data)
+      setDetailDialogOpen(true)
+    } catch (e) {
+      setError(e)
+    }
+  }
+
+  const openPatientEdit = async (row) => {
+    try {
+      setError(null)
+      const data = await loadPatient(row.userId)
+      setSelectedPatient(data)
+      setEditDialogOpen(true)
+    } catch (e) {
+      setError(e)
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between border-b border-border/60 pb-5">
@@ -105,6 +141,34 @@ export default function PractitionerPatients() {
         title="Add patient"
         onCreated={async () => {
           await load(query.trim(), 1)
+        }}
+      />
+
+      <PractitionerPatientDetailsDialog
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        patient={selectedPatient}
+        onEdit={(patient) => {
+          setSelectedPatient(patient)
+          setEditDialogOpen(true)
+        }}
+      />
+
+      <PractitionerCreatePatientDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        title="Edit patient"
+        mode="edit"
+        patient={selectedPatient}
+        onCreated={async () => {
+          await load(query.trim(), page)
+          if (selectedPatient?.userId) {
+            try {
+              setSelectedPatient(await getPractitionerPatient(selectedPatient.userId))
+            } catch {
+              /* ignore */
+            }
+          }
         }}
       />
 
@@ -224,6 +288,28 @@ export default function PractitionerPatients() {
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={detailLoading}
+                        onClick={() => openPatientDetails(p)}
+                      >
+                        <Eye className="size-3.5" />
+                        View
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        disabled={detailLoading}
+                        onClick={() => openPatientEdit(p)}
+                      >
+                        <Pencil className="size-3.5" />
+                        Edit
+                      </Button>
                       <Button
                         type="button"
                         size="sm"

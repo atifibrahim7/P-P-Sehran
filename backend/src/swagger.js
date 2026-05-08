@@ -101,7 +101,10 @@ function buildSpec() {
 						total_patient: { type: 'number' },
 						total_practitioner: { type: 'number' },
 						createdAt: { type: 'string' },
-						paidAt: { type: 'string' }
+						paidAt: { type: 'string' },
+						inuviOrderId: { type: ['string', 'null'], description: 'Inuvi order UUID when sync succeeded' },
+						inuviSyncError: { type: ['string', 'null'], description: 'Last Inuvi sync error (soft-fail)' },
+						inuviSyncedAt: { type: ['string', 'null'] }
 					},
 					required: ['id', 'type', 'practitionerId', 'state', 'total_patient', 'total_practitioner', 'createdAt']
 				},
@@ -288,6 +291,28 @@ function buildSpec() {
 						emailSent: { type: 'boolean' }
 					},
 					required: ['userId', 'patientId', 'email', 'name', 'forenames', 'surname', 'policyNumber', 'emailSent']
+				},
+				PatientDetail: {
+					type: 'object',
+					properties: {
+						patientId: { type: 'integer' },
+						userId: { type: 'integer' },
+						name: { type: 'string' },
+						email: { type: 'string' },
+						title: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						dateOfBirth: { type: 'string', format: 'date' },
+						gender: { $ref: '#/components/schemas/PatientGender' },
+						policyNumber: { type: 'string' },
+						clientReference2: { type: ['string', 'null'] },
+						nationalInsuranceNumber: { type: ['string', 'null'] },
+						smokerStatus: { $ref: '#/components/schemas/SmokerStatus' },
+						primaryPractitionerName: { type: ['string', 'null'] },
+						addresses: { type: 'array', items: { $ref: '#/components/schemas/PatientAddressInput' } },
+						contacts: { type: 'array', items: { $ref: '#/components/schemas/PatientContactInput' } }
+					},
+					required: ['patientId', 'userId', 'name', 'email', 'forenames', 'surname', 'dateOfBirth', 'gender', 'policyNumber', 'smokerStatus', 'addresses', 'contacts']
 				}
 			}
 		},
@@ -344,6 +369,24 @@ function buildSpec() {
 					summary: 'List users (admin)',
 					parameters: [{ in: 'query', name: 'role', schema: { $ref: '#/components/schemas/Role' } }],
 					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } }
+				},
+				post: {
+					tags: ['Users'],
+					summary: 'Create user (admin). Practitioners require practitionerProfile with demographics, addresses, contacts.',
+					responses: { '201': { description: 'Created' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/users/{id}': {
+				parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+				get: {
+					tags: ['Users'],
+					summary: 'Get user by id (admin); includes practitionerProfile for practitioners',
+					responses: { '200': { description: 'OK' }, '404': { description: 'Not Found' }, '403': { description: 'Forbidden' } }
+				},
+				put: {
+					tags: ['Users'],
+					summary: 'Update user (admin)',
+					responses: { '200': { description: 'OK' }, '404': { description: 'Not Found' }, '403': { description: 'Forbidden' } }
 				}
 			},
 			'/patients': {
@@ -365,6 +408,23 @@ function buildSpec() {
 						content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatePractitionerPatientRequest' } } }
 					},
 					responses: { '201': { description: 'Created' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/patients/{userId}': {
+				parameters: [{ name: 'userId', in: 'path', required: true, schema: { type: 'integer' } }],
+				get: {
+					tags: ['Patients'],
+					summary: 'Get patient details including addresses and contacts',
+					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' }, '404': { description: 'Not Found' } }
+				},
+				put: {
+					tags: ['Patients'],
+					summary: 'Update patient details, addresses, and contacts',
+					requestBody: {
+						required: true,
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatePractitionerPatientRequest' } } }
+					},
+					responses: { '200': { description: 'OK' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' }, '404': { description: 'Not Found' } }
 				}
 			},
 			'/vendors': {
@@ -420,6 +480,14 @@ function buildSpec() {
 					summary: 'Get order with items',
 					parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
 					responses: { '200': { description: 'OK' }, '404': { description: 'Not Found' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/orders/{id}/inuvi-sync': {
+				post: {
+					tags: ['Orders'],
+					summary: 'Retry Inuvi sync for an order without inuviOrderId (admin)',
+					parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+					responses: { '200': { description: 'OK' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
 				}
 			},
 			'/orders/{id}/state': {
