@@ -195,6 +195,7 @@ model CartItem {
   quantity  Int             @default(1)
   addedBy   CartItemSource
   labTestCategory LabTestCategory?
+  inuviExamTypeId Int?
 
   cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -247,9 +248,11 @@ model OrderItem {
   orderId            Int
   productId          Int
   quantity           Int   @default(1)
+  labTestCategory    LabTestCategory?
 
   patientPrice       Float
   practitionerPrice  Float
+  inuviExamTypeId    Int?
 
   order   Order   @relation(fields: [orderId], references: [id])
   product Product @relation(fields: [productId], references: [id])

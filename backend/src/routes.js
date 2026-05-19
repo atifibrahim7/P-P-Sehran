@@ -10,6 +10,7 @@ const paymentsRouter = require('./modules/payments/routes');
 const uploadsRouter = require('./modules/uploads/routes');
 const cartsRouter = require('./modules/carts/routes');
 const practitionerPatientsRouter = require('./modules/patients/routes');
+const inuviRouter = require('./modules/inuvi/routes');
 
 function createApiRouter() {
 	const router = Router();
@@ -25,6 +26,7 @@ function createApiRouter() {
 	router.use('/payments', paymentsRouter);
 	router.use('/uploads', uploadsRouter);
 	router.use('/carts', cartsRouter);
+	router.use('/inuvi', inuviRouter);
 	return router;
 }
 

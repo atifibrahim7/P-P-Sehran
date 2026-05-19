@@ -59,6 +59,7 @@ function serializeOrderItem(it) {
 		quantity: it.quantity ?? 1,
 		unit_patient_price: Number(it.patientPrice),
 		unit_practitioner_price: Number(it.practitionerPrice),
+		labTestCategory: it.labTestCategory ?? null,
 	};
 	if (it.product) {
 		base.product = {

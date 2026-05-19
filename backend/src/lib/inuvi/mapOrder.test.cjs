@@ -14,9 +14,35 @@ test('mapSmokerToInuvi', () => {
 	assert.equal(mapSmokerToInuvi('UNKNOWN'), 'Unknown');
 });
 
-test('buildCreateOrderExamRequest uses camelCase', () => {
-	const body = buildCreateOrderExamRequest({ labTestCode: 'ABC' }, 42);
-	assert.deepEqual(body, { examType: 42, requirements: [{ code: 'ABC' }] });
+test('buildCreateOrderExamRequest maps Inuvi payload for nurse visits', () => {
+	const body = buildCreateOrderExamRequest({ labTestCode: 'LFT' }, 1);
+	assert.deepEqual(body, {
+		ExamType: 1,
+		SpecialInstruction: '',
+		SpecialExaminerInstruction: '',
+		IsUrgent: false,
+		Requirements: [{ Code: 'LFT' }],
+	});
+});
+
+test('buildCreateOrderExamRequest maps Inuvi payload for diagnostic centre', () => {
+	const body = buildCreateOrderExamRequest({ labTestCode: 'LFT' }, 1, { includeDiagnosticCentreCode: true });
+	assert.deepEqual(body.Requirements, [{ Code: 'LFT' }, { Code: 'LDC' }]);
+});
+
+test('buildCreateOrderExamRequest maps Inuvi payload for kit fulfilment', () => {
+	const body = buildCreateOrderExamRequest({ labTestCode: 'ENDO1', description: 'Finger-prick home kit' }, 5, {
+		sampleToLabId: 'E54537E1-E8F8-E511-8134-025FE46D3D9D',
+	});
+	assert.deepEqual(body, {
+		ExamType: 5,
+		SpecialInstruction: '',
+		SpecialExaminerInstruction: '',
+		IsUrgent: false,
+		Requirements: [{ Code: 'ENDO1' }],
+		SampleToLabId: 'E54537E1-E8F8-E511-8134-025FE46D3D9D',
+		VacutainerTypes: [2],
+	});
 });
 
 test('validateApplicantPrerequisites catches missing phone', () => {

@@ -94,6 +94,28 @@ function validateApplicantPrerequisites({ forenames, surname, dateOfBirth, polic
 	return errs.length ? `Missing Inuvi applicant data: ${errs.join(', ')}` : null;
 }
 
+function normalizeProductText(product) {
+	return [product?.name, product?.description, product?.sku, product?.labTestCode]
+		.filter(Boolean)
+		.map((value) => String(value).toLowerCase())
+		.join(' ');
+}
+
+function inferVacutainerTypes(product) {
+	const text = normalizeProductText(product);
+	if (!text) return [];
+	if (text.includes('finger-prick') || text.includes('finger prick') || text.includes('fingerprick') || text.includes('fpk')) {
+		return [2];
+	}
+	if (text.includes('venous') || text.includes('vbk')) {
+		return [1];
+	}
+	if (text.includes('saliva') || text.includes('ussk')) {
+		return [3];
+	}
+	return [];
+}
+
 /**
  * @param {object} order Prisma order with patient or practitioner + addresses + contacts + items.product
  * @returns {{ body: object, policyNumber: string } | { error: string }}
@@ -154,10 +176,36 @@ function buildCreateOrderRequest(order) {
 	return { error: 'Unsupported order type for Inuvi' };
 }
 
-function buildCreateOrderExamRequest(product, examTypeId) {
-	const body = { ExamType: examTypeId };
-	if (product.labTestCode && String(product.labTestCode).trim()) {
-		body.Requirements = [{ Code: String(product.labTestCode).trim() }];
+
+function buildCreateOrderExamRequest(product, examTypeId, options = {}) {
+	const parsedExamTypeId = Number(examTypeId);
+	const body = {
+		ExamType: parsedExamTypeId,
+		SpecialInstruction: '',
+		SpecialExaminerInstruction: '',
+		IsUrgent: false,
+	};
+
+	const requirements = [];
+	const labTestCode = product.labTestCode && String(product.labTestCode).trim();
+	if (labTestCode) {
+		requirements.push({ Code: labTestCode });
+	}
+	if (parsedExamTypeId === 1 && options.includeDiagnosticCentreCode) {
+		requirements.push({ Code: 'LDC' });
+	}
+	if (requirements.length) {
+		body.Requirements = requirements;
+	}
+
+	if (parsedExamTypeId === 5) {
+		const sampleToLabId = options.sampleToLabId && String(options.sampleToLabId).trim();
+		const vacutainerTypes = Array.isArray(options.vacutainerTypes) && options.vacutainerTypes.length
+			? options.vacutainerTypes
+			: inferVacutainerTypes(product);
+
+		if (sampleToLabId) body.SampleToLabId = sampleToLabId;
+		if (vacutainerTypes.length) body.VacutainerTypes = vacutainerTypes.map((value) => Number(value)).filter(Number.isInteger);
 	}
 	return body;
 }
@@ -172,4 +220,6 @@ module.exports = {
 	validateApplicantPrerequisites,
 	buildCreateOrderRequest,
 	buildCreateOrderExamRequest,
+	inferVacutainerTypes,
+	normalizeProductText,
 };

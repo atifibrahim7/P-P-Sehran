@@ -99,6 +99,8 @@ async function createOrder({ createdByUserId, practitionerId: practitionerUserId
 			quantity,
 			patientPrice: pp,
 			practitionerPrice: pr,
+			labTestCategory: it.labTestCategory ?? null,
+			inuviExamTypeId: it.inuviExamTypeId ?? null,
 		});
 	}
 

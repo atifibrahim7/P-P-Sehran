@@ -203,6 +203,7 @@ export const checkoutCart = (payload) =>
   api('/carts/checkout', { method: 'POST', body: JSON.stringify(payload) })
 export const clearCart = (payload = {}) =>
   api('/carts/clear', { method: 'POST', body: JSON.stringify(payload) })
+export const getInuviExamTypes = () => api('/inuvi/exam-types')
 
 // Orders
 export const getOrdersPage = (params = {}) => {

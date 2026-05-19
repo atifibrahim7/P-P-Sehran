@@ -52,6 +52,7 @@ function serializeCartItem(row) {
 		quantity: row.quantity,
 		addedBy: row.addedBy === 'PRACTITIONER' ? 'practitioner' : 'patient',
 		labTestCategory: row.labTestCategory ? LAB_TEST_CATEGORY_API_BY_DB[row.labTestCategory] || null : null,
+		inuviExamTypeId: row.inuviExamTypeId ?? null,
 		product: productMini(row.product),
 	};
 }
@@ -333,6 +334,15 @@ router.post('/items', authenticateToken, async (req, res) => {
 	}
 	const labTestCategory = product.category === 'BLOOD_TEST' ? parsedLabTestCategory : null;
 
+	let inuviExamTypeId = null;
+	if (req.body?.inuviExamTypeId != null && req.body?.inuviExamTypeId !== '') {
+		const parsed = Number(req.body.inuviExamTypeId);
+		if (!Number.isInteger(parsed) || parsed <= 0) {
+			return badRequest(res, 'inuviExamTypeId must be a positive integer');
+		}
+		inuviExamTypeId = parsed;
+	}
+
 	if (req.user.role === 'practitioner') {
 		const pr = await prisma.practitioner.findUnique({ where: { userId: Number(req.user.userId) } });
 		if (!pr) return badRequest(res, 'Practitioner profile not found');
@@ -356,10 +366,12 @@ router.post('/items', authenticateToken, async (req, res) => {
 					quantity: qty,
 					addedBy: 'PRACTITIONER',
 					labTestCategory,
+					inuviExamTypeId,
 				},
 				update: {
 					quantity: { increment: qty },
 					...(labTestCategory ? { labTestCategory } : {}),
+					...(inuviExamTypeId != null ? { inuviExamTypeId } : {}),
 				},
 			});
 		} else {
@@ -375,10 +387,12 @@ router.post('/items', authenticateToken, async (req, res) => {
 					quantity: qty,
 					addedBy: 'PRACTITIONER',
 					labTestCategory,
+					inuviExamTypeId,
 				},
 				update: {
 					quantity: { increment: qty },
 					...(labTestCategory ? { labTestCategory } : {}),
+					...(inuviExamTypeId != null ? { inuviExamTypeId } : {}),
 				},
 			});
 		}
@@ -403,10 +417,12 @@ router.post('/items', authenticateToken, async (req, res) => {
 				quantity: qty,
 				addedBy: 'PATIENT',
 				labTestCategory,
+				inuviExamTypeId,
 			},
 			update: {
 				quantity: { increment: qty },
 				...(labTestCategory ? { labTestCategory } : {}),
+				...(inuviExamTypeId != null ? { inuviExamTypeId } : {}),
 			},
 		});
 		const cart = await loadCartFull(cartRow.id);
@@ -509,7 +525,12 @@ router.post('/checkout', authenticateToken, async (req, res, next) => {
 					practitionerId: uid,
 					patientId: null,
 					type: 'practitioner_self',
-					items: cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+					items: cart.items.map((i) => ({
+						productId: i.productId,
+						quantity: i.quantity,
+						labTestCategory: i.labTestCategory ?? null,
+						inuviExamTypeId: i.inuviExamTypeId ?? null,
+					})),
 				});
 				await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
 				await prisma.cart.delete({ where: { id: cart.id } });
@@ -531,7 +552,12 @@ router.post('/checkout', authenticateToken, async (req, res, next) => {
 					practitionerId: uid,
 					patientId: Number(patientUserId),
 					type: 'patient',
-					items: cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+					items: cart.items.map((i) => ({
+						productId: i.productId,
+						quantity: i.quantity,
+						labTestCategory: i.labTestCategory ?? null,
+						inuviExamTypeId: i.inuviExamTypeId ?? null,
+					})),
 				});
 				await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
 				await prisma.cart.delete({ where: { id: cart.id } });
@@ -567,7 +593,12 @@ router.post('/checkout', authenticateToken, async (req, res, next) => {
 				practitionerId: null,
 				patientId: uid,
 				type: 'patient',
-				items: cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+				items: cart.items.map((i) => ({
+					productId: i.productId,
+					quantity: i.quantity,
+					labTestCategory: i.labTestCategory ?? null,
+					inuviExamTypeId: i.inuviExamTypeId ?? null,
+				})),
 			});
 			await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
 			await prisma.cart.delete({ where: { id: cart.id } });

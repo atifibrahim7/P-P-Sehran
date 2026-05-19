@@ -1,5 +1,5 @@
 const prisma = require('../../config/prisma');
-const { getDefaultInuviExamTypeId } = require('./config');
+const { getDefaultInuviExamTypeId, getInuviSampleToLabId } = require('./config');
 const { inuviRequest, extractUuid } = require('./client');
 const { buildCreateOrderRequest, buildCreateOrderExamRequest } = require('./mapOrder');
 
@@ -102,8 +102,9 @@ async function syncOrderToInuvi(localOrderId) {
 		for (const line of order.items) {
 			const product = line.product;
 			if (!product || product.category !== 'BLOOD_TEST') continue;
-			const examTypeId = product.inuviExamTypeId ?? defaultExam;
+			const examTypeId = line.inuviExamTypeId ?? product.inuviExamTypeId ?? defaultExam;
 			if (examTypeId == null) continue;
+			const isDiagnosticCentre = line.labTestCategory === 'LAB_VISIT';
 
 			let qty = 1;
 			try {
@@ -111,7 +112,10 @@ async function syncOrderToInuvi(localOrderId) {
 			} catch {
 				qty = 1;
 			}
-			const examBody = buildCreateOrderExamRequest(product, examTypeId);
+			const examBody = buildCreateOrderExamRequest(product, examTypeId, {
+				includeDiagnosticCentreCode: isDiagnosticCentre,
+				sampleToLabId: getInuviSampleToLabId(),
+			});
 			for (let i = 0; i < qty; i += 1) {
 				try {
 					await inuviRequest(`/api/v1.0/orders/${inuviOrderUuid}/orderexams`, {
