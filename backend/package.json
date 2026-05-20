@@ -6,6 +6,7 @@
     "test": "node --test src/lib/inuvi/mapOrder.test.cjs",
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "build": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",

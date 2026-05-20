@@ -11,7 +11,7 @@ async function main() {
 
 	const hash = (p) => bcrypt.hashSync(p, 10);
 
-	await prisma.$transaction(async (tx) => {
+		await prisma.$transaction(async (tx) => {
 		const admin = await tx.user.create({
 			data: {
 				email: 'admin@sys.local',
@@ -137,7 +137,7 @@ async function main() {
 		});
 
 		console.log('Seeded users:', { admin: admin.email, practitioner: practitionerUser.email, patient: patientUser.email });
-	});
+		}, { timeout: 60000 });
 }
 
 main()
