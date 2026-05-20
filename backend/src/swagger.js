@@ -16,6 +16,7 @@ function buildSpec() {
 			{ name: 'Products', description: 'Products catalog: blood tests and supplements' },
 			{ name: 'Orders', description: 'Orders, order items, order state' },
 			{ name: 'Payments', description: 'Stripe checkout and webhooks' },
+			{ name: 'Inuvi', description: 'Inuvi order sync, exam catalog, and webhook intake' },
 			{ name: 'Commissions', description: 'Practitioner commissions' },
 			{ name: 'Lab', description: 'Lab integration and test results' },
 			{ name: 'Patients', description: 'Practitioner patient roster and registration' }
@@ -545,6 +546,44 @@ function buildSpec() {
 					summary: 'Stripe webhook (or mock)',
 					responses: { '200': { description: 'Received' }, '400': { description: 'Bad Request' } }
 				}
+			},
+			'/inuvi/webhook': {
+				post: {
+					tags: ['Inuvi'],
+					security: [],
+					summary: 'Inuvi webhook intake',
+					requestBody: {
+						required: true,
+						content: {
+							'application/json': {
+								schema: {
+									type: 'object',
+									properties: {
+										test_webhook: { type: 'string' },
+										event: {
+											type: 'object',
+											properties: {
+												order_exam_id: { type: 'string' },
+												order_id: { type: 'string' },
+												policy_number: { type: 'string' },
+												client_ref_2: { type: 'string' },
+												exam_type: { type: 'string' },
+												alert_status: { type: 'string' },
+												event_id: { type: 'string' },
+												activity_description: { type: 'string' },
+												activity_comment: { type: 'string' },
+												activity_created_date: { type: 'string' }
+											},
+											required: ['order_exam_id', 'order_id', 'policy_number', 'exam_type', 'alert_status', 'event_id', 'activity_description', 'activity_comment', 'activity_created_date'],
+										},
+										required: ['test_webhook', 'event'],
+									},
+								},
+							}
+						}
+					}
+				},
+				responses: { '200': { description: 'Received' }, '401': { description: 'Invalid signature' }, '403': { description: 'Forbidden' } }
 			},
 			'/lab/results': {
 				get: { tags: ['Lab'], summary: 'List lab results (role-scoped)', responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } } }

@@ -10,6 +10,7 @@ const { setupSwagger } = require('./swagger');
 
 function createServer() {
 	const app = express();
+	app.set('trust proxy', true);
 
 	// Middlewares
 	app.use(helmet());
