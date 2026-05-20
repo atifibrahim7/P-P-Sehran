@@ -18,7 +18,10 @@ function formatDateOfBirth(d) {
 	if (!d) return null;
 	const date = d instanceof Date ? d : new Date(d);
 	if (Number.isNaN(date.getTime())) return null;
-	return date.toISOString();
+	const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+	const day = String(date.getUTCDate()).padStart(2, '0');
+	const year = String(date.getUTCFullYear());
+	return `${month}/${day}/${year}`;
 }
 
 function mapAddressesToInuvi(addresses) {

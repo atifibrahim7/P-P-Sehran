@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { mapGenderToInuvi, mapSmokerToInuvi, buildCreateOrderExamRequest, validateApplicantPrerequisites } = require('./mapOrder');
+const { mapGenderToInuvi, mapSmokerToInuvi, formatDateOfBirth, buildCreateOrderExamRequest, validateApplicantPrerequisites } = require('./mapOrder');
 
 test('mapGenderToInuvi', () => {
 	assert.equal(mapGenderToInuvi('MALE'), 'Male');
@@ -12,6 +12,11 @@ test('mapSmokerToInuvi', () => {
 	assert.equal(mapSmokerToInuvi('SMOKER'), 'Smoker');
 	assert.equal(mapSmokerToInuvi('NON_SMOKER'), 'NonSmoker');
 	assert.equal(mapSmokerToInuvi('UNKNOWN'), 'Unknown');
+});
+
+test('formatDateOfBirth returns MM/DD/YYYY', () => {
+	assert.equal(formatDateOfBirth(new Date('1990-01-02T12:34:56.000Z')), '01/02/1990');
+	assert.equal(formatDateOfBirth('1990-12-31'), '12/31/1990');
 });
 
 test('buildCreateOrderExamRequest maps Inuvi payload for nurse visits', () => {
