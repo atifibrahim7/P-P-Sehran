@@ -243,6 +243,16 @@ model Order {
   testResult     TestResult?
 }
 
+model InuviWebhookPayload {
+  id           Int      @id @default(autoincrement())
+  receivedAt   DateTime @default(now())
+  activityCode String?  @db.VarChar(16)
+  payload      Json
+
+  @@index([receivedAt])
+  @@index([activityCode])
+}
+
 model OrderItem {
   id                 Int   @id @default(autoincrement())
   orderId            Int

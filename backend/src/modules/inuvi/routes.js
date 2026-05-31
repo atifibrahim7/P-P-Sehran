@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const { authenticateToken } = require('../../middleware/auth');
+const prisma = require('../../config/prisma');
 const { inuviRequest } = require('../../lib/inuvi/client');
 const { getInuviWebhookSecret } = require('../../lib/inuvi/config');
 const {
@@ -62,13 +63,24 @@ router.post('/webhook', async (req, res) => {
 		return res.status(401).send('Invalid signature');
 	}
 
-	res.status(200).send('Webhook received');
-
 	const payload = req.body;
 	const activityCode = getActivityCode(payload);
 	const event = payload?.event || {};
 	const message = INUVI_ACTIVITY_MESSAGES[Number(activityCode)] || `Unhandled Inuvi event: ${activityCode}`;
 	console.log(`[Inuvi webhook] ${message}`);
+
+	try {
+		await prisma.inuviWebhookPayload.create({
+			data: {
+				activityCode: activityCode === 'unknown' ? null : activityCode,
+				payload,
+			},
+		});
+		res.status(200).send('Webhook received');
+	} catch (err) {
+		console.error('[Inuvi webhook] database write failed:', err.message);
+		return res.status(500).send('Failed to store webhook payload');
+	}
 
 	if (activityCode === '617') {
 		console.log(`[Inuvi webhook] report ready for policy ${event.policy_number || 'unknown'}`);
