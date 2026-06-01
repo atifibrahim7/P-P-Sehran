@@ -1,4 +1,6 @@
 const { Router } = require('express');
+const multer = require('multer');
+const cloudinary = require('cloudinary').v2;
 const { authenticateToken } = require('../../middleware/auth');
 const prisma = require('../../config/prisma');
 const { inuviRequest } = require('../../lib/inuvi/client');
@@ -9,7 +11,22 @@ const {
 	verifyInuviSignature,
 	getActivityCode,
 } = require('../../lib/inuvi/webhook');
-const { ok } = require('../../utils/response');
+const { ok, badRequest } = require('../../utils/response');
+
+const documentUpload = multer({
+	storage: multer.memoryStorage(),
+	limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
+});
+
+let cloudinaryConfigured = false;
+function configureCloudinary() {
+	if (cloudinaryConfigured) return true;
+	const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+	if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) return false;
+	cloudinary.config({ cloud_name: CLOUDINARY_CLOUD_NAME, api_key: CLOUDINARY_API_KEY, api_secret: CLOUDINARY_API_SECRET });
+	cloudinaryConfigured = true;
+	return true;
+}
 
 const router = Router();
 
@@ -102,5 +119,74 @@ router.post('/webhook', async (req, res) => {
 			});
 	});
 });
+
+/**
+ * POST /api/inuvi/document-upload
+ * multipart field name: file
+ * Authenticated users only. Uploads a document to the inuivi-documents Cloudinary folder.
+ */
+function authenticateUploadToken(req, res, next) {
+	const staticToken = process.env.INUIVI_UPLOAD_TOKEN;
+	if (!staticToken) {
+		return res.status(503).json({ success: false, error: { message: 'INUIVI_UPLOAD_TOKEN is not configured on the server.' } });
+	}
+	const bearer = (req.headers['authorization'] || '').replace(/^Bearer\s+/i, '');
+	if (!bearer || bearer !== staticToken) {
+		return res.status(401).json({ success: false, error: { message: 'Invalid or missing upload token.' } });
+	}
+	next();
+}
+
+router.post(
+	'/document-upload',
+	authenticateUploadToken,
+	(req, res, next) => {
+		documentUpload.single('file')(req, res, (err) => {
+			if (err instanceof multer.MulterError) {
+				if (err.code === 'LIMIT_FILE_SIZE') {
+					return res.status(400).json({ success: false, error: { message: 'File too large (max 20MB)' } });
+				}
+				return res.status(400).json({ success: false, error: { message: err.message || 'Upload error' } });
+			}
+			if (err) {
+				return res.status(400).json({ success: false, error: { message: err.message || 'Invalid file' } });
+			}
+			next();
+		});
+	},
+	async (req, res, next) => {
+		try {
+			if (!configureCloudinary()) {
+				return res.status(503).json({
+					success: false,
+					error: { message: 'Upload not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.' },
+				});
+			}
+			if (!req.file || !req.file.buffer) {
+				return badRequest(res, 'No file uploaded (use field name "file")');
+			}
+
+			const result = await new Promise((resolve, reject) => {
+				const stream = cloudinary.uploader.upload_stream(
+					{ folder: 'inuivi-documents', resource_type: 'auto' },
+					(err, data) => {
+						if (err) reject(err);
+						else resolve(data);
+					}
+				);
+				stream.end(req.file.buffer);
+			});
+
+			return ok(res, {
+				url: result.secure_url,
+				publicId: result.public_id,
+				format: result.format,
+				bytes: result.bytes,
+			});
+		} catch (e) {
+			next(e);
+		}
+	}
+);
 
 module.exports = router;

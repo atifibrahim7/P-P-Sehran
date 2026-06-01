@@ -585,6 +585,54 @@ function buildSpec() {
 				},
 				responses: { '200': { description: 'Received' }, '401': { description: 'Invalid signature' }, '403': { description: 'Forbidden' } }
 			},
+			'/inuvi/document-upload': {
+			post: {
+				tags: ['Inuvi'],
+				security: [{ bearerAuth: [] }],
+				summary: 'Upload a document to Cloudinary (inuivi-documents folder). Use the static INUIVI_UPLOAD_TOKEN as the bearer token.',
+				requestBody: {
+					required: true,
+					content: {
+						'multipart/form-data': {
+							schema: {
+								type: 'object',
+								properties: {
+									file: { type: 'string', format: 'binary', description: 'Document to upload (max 20MB)' }
+								},
+								required: ['file']
+							}
+						}
+					}
+				},
+				responses: {
+					'200': {
+						description: 'Uploaded',
+						content: {
+							'application/json': {
+								schema: {
+									allOf: [{ $ref: '#/components/schemas/SuccessEnvelope' }],
+									properties: {
+										data: {
+											type: 'object',
+											properties: {
+												url: { type: 'string' },
+												publicId: { type: 'string' },
+												format: { type: 'string' },
+												bytes: { type: 'integer' }
+											},
+											required: ['url', 'publicId']
+										}
+									}
+								}
+							}
+						}
+					},
+					'400': { description: 'No file / file too large' },
+					'401': { description: 'Unauthorized' },
+					'503': { description: 'Cloudinary not configured' }
+				}
+			}
+		},
 			'/lab/results': {
 				get: { tags: ['Lab'], summary: 'List lab results (role-scoped)', responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } } }
 			},
