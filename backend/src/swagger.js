@@ -586,11 +586,27 @@ function buildSpec() {
 				},
 				responses: { '200': { description: 'Received' }, '401': { description: 'Invalid signature' }, '403': { description: 'Forbidden' } }
 			},
-			'/inuvi/document-upload': {
+			'/inuvi/documents': {
+			get: {
+				tags: ['Inuvi'],
+				summary: 'List uploaded documents (admin, practitioner)',
+				parameters: [
+					{ in: 'query', name: 'q', schema: { type: 'string' }, description: 'Search by original filename' },
+					{ in: 'query', name: 'page', schema: { type: 'integer', minimum: 1, default: 1 } },
+					{ in: 'query', name: 'pageSize', schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 } }
+				],
+				responses: {
+					'200': { description: 'OK' },
+					'401': { description: 'Unauthorized' },
+					'403': { description: 'Forbidden' }
+				}
+			}
+		},
+		'/inuvi/document-upload': {
 			post: {
 				tags: ['Inuvi'],
 				security: [{ bearerAuth: [] }],
-				summary: 'Upload a document to Cloudinary (inuivi-documents folder). Use the static INUIVI_UPLOAD_TOKEN as the bearer token.',
+				summary: 'Upload a document (INUIVI_UPLOAD_TOKEN required). Preserves original filename; appends (n) on duplicate.',
 				requestBody: {
 					required: true,
 					content: {
@@ -616,12 +632,14 @@ function buildSpec() {
 										data: {
 											type: 'object',
 											properties: {
+												id: { type: 'integer' },
+												originalName: { type: 'string' },
 												url: { type: 'string' },
 												publicId: { type: 'string' },
 												format: { type: 'string' },
 												bytes: { type: 'integer' }
 											},
-											required: ['url', 'publicId']
+											required: ['id', 'originalName', 'url', 'publicId']
 										}
 									}
 								}

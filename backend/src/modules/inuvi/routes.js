@@ -1,7 +1,9 @@
+const path = require('path');
 const { Router } = require('express');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
-const { authenticateToken } = require('../../middleware/auth');
+const { authenticateToken, requireRole } = require('../../middleware/auth');
+const { parsePagination, paginateResult } = require('../../utils/pagination');
 const prisma = require('../../config/prisma');
 const { inuviRequest } = require('../../lib/inuvi/client');
 const { getInuviWebhookSecret } = require('../../lib/inuvi/config');
@@ -166,9 +168,31 @@ router.post(
 				return badRequest(res, 'No file uploaded (use field name "file")');
 			}
 
+			const originalName = req.file.originalname || 'upload';
+			const ext = path.extname(originalName);
+			const base = path.basename(originalName, ext);
+
+			// Find next available name to avoid duplicates
+			const existing = await prisma.inuviDocument.findMany({
+				where: {
+					OR: [
+						{ originalName },
+						{ originalName: { startsWith: `${base}(` } },
+					],
+				},
+				select: { originalName: true },
+			});
+			const takenNames = new Set(existing.map((d) => d.originalName));
+			let finalName = originalName;
+			if (takenNames.has(finalName)) {
+				let n = 1;
+				while (takenNames.has(`${base}(${n})${ext}`)) n++;
+				finalName = `${base}(${n})${ext}`;
+			}
+
 			const result = await new Promise((resolve, reject) => {
 				const stream = cloudinary.uploader.upload_stream(
-					{ folder: 'inuivi-documents', resource_type: 'auto' },
+					{ public_id: `inuivi-documents/${finalName}`, resource_type: 'raw', overwrite: false },
 					(err, data) => {
 						if (err) reject(err);
 						else resolve(data);
@@ -177,16 +201,55 @@ router.post(
 				stream.end(req.file.buffer);
 			});
 
+			const doc = await prisma.inuviDocument.create({
+				data: {
+					originalName: finalName,
+					publicId: result.public_id,
+					url: result.secure_url,
+					format: result.format || ext.replace('.', '') || null,
+					bytes: result.bytes ?? null,
+				},
+			});
+
 			return ok(res, {
-				url: result.secure_url,
-				publicId: result.public_id,
-				format: result.format,
-				bytes: result.bytes,
+				id: doc.id,
+				originalName: doc.originalName,
+				url: doc.url,
+				publicId: doc.publicId,
+				format: doc.format,
+				bytes: doc.bytes,
 			});
 		} catch (e) {
 			next(e);
 		}
 	}
 );
+
+/**
+ * GET /api/inuvi/documents
+ * Admin and practitioner only. Returns paginated list of uploaded documents, searchable by original filename.
+ */
+router.get('/documents', authenticateToken, requireRole('admin', 'practitioner'), async (req, res, next) => {
+	try {
+		const { page, pageSize } = parsePagination(req.query);
+		const q = req.query.q ? String(req.query.q).trim() : '';
+
+		const where = q ? { originalName: { contains: q } } : {};
+
+		const [total, items] = await Promise.all([
+			prisma.inuviDocument.count({ where }),
+			prisma.inuviDocument.findMany({
+				where,
+				orderBy: { uploadedAt: 'desc' },
+				skip: (page - 1) * pageSize,
+				take: pageSize,
+			}),
+		]);
+
+		return ok(res, paginateResult(items, page, pageSize, total));
+	} catch (e) {
+		next(e);
+	}
+});
 
 module.exports = router;

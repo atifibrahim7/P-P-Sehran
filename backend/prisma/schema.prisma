@@ -243,6 +243,18 @@ model Order {
   testResult     TestResult?
 }
 
+model InuviDocument {
+  id           Int      @id @default(autoincrement())
+  originalName String   @db.VarChar(512)
+  publicId     String   @db.VarChar(512)
+  url          String   @db.VarChar(1024)
+  format       String?  @db.VarChar(20)
+  bytes        Int?
+  uploadedAt   DateTime @default(now())
+
+  @@index([originalName])
+}
+
 model InuviWebhookPayload {
   id           Int      @id @default(autoincrement())
   receivedAt   DateTime @default(now())
