@@ -1,6 +1,7 @@
 const swaggerUi = require('swagger-ui-express');
 
 function buildSpec() {
+	const apiBaseUrl = (process.env.APP_API_URL || process.env.PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 	return {
 		openapi: '3.0.3',
 		info: {
@@ -8,7 +9,7 @@ function buildSpec() {
 			version: '1.0.0',
 			description: 'REST API documentation for Admin, Practitioner, and Patient portals'
 		},
-		servers: [{ url: 'http://localhost:3001/api' }],
+		servers: [{ url: `${apiBaseUrl}/api` }],
 		tags: [
 			{ name: 'Auth', description: 'Authentication endpoints' },
 			{ name: 'Users', description: 'User profiles and admin user management' },
