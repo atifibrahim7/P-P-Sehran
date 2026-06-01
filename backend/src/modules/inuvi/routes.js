@@ -170,7 +170,8 @@ router.post(
 
 			const originalName = req.file.originalname || 'upload';
 			const ext = path.extname(originalName);
-			const base = path.basename(originalName, ext);
+			const rawBase = path.basename(originalName, ext);
+			const base = ext && rawBase.endsWith(ext) ? rawBase.slice(0, -ext.length) : rawBase;
 
 			// Find next available name to avoid duplicates
 			const existing = await prisma.inuviDocument.findMany({
@@ -192,7 +193,7 @@ router.post(
 
 			const result = await new Promise((resolve, reject) => {
 				const stream = cloudinary.uploader.upload_stream(
-					{ public_id: `inuivi-documents/${finalName}`, resource_type: 'image', overwrite: false },
+					{ folder: 'inuivi-documents', public_id: path.basename(finalName, ext), resource_type: 'image', overwrite: false },
 					(err, data) => {
 						if (err) reject(err);
 						else resolve(data);
