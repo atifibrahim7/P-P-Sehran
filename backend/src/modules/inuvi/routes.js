@@ -192,7 +192,7 @@ router.post(
 
 			const result = await new Promise((resolve, reject) => {
 				const stream = cloudinary.uploader.upload_stream(
-					{ public_id: `inuivi-documents/${finalName}`, resource_type: 'raw', overwrite: false },
+					{ public_id: `inuivi-documents/${finalName}`, resource_type: 'image', overwrite: false },
 					(err, data) => {
 						if (err) reject(err);
 						else resolve(data);
