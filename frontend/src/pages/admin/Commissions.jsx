@@ -46,7 +46,7 @@ export default function AdminCommissions() {
   }, [load])
 
   const commissions = payload?.commissions || []
-  const byPractitioner = payload?.totalsByPractitioner || []
+  const byPractitioner = useMemo(() => payload?.totalsByPractitioner || [], [payload])
   const summary = payload?.summary || {}
 
   const markPaid = async (id, next) => {

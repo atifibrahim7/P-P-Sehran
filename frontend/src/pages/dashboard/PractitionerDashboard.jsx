@@ -4,10 +4,8 @@ import { ClipboardList, ShoppingCart, FlaskConical, Users, Package, Sparkles } f
 import { api, getOrders, getPractitionerPatients } from '../../api/client'
 import KpiCard from '../../components/KpiCard.jsx'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 
 export default function PractitionerDashboard() {
   const [loading, setLoading] = useState(true)

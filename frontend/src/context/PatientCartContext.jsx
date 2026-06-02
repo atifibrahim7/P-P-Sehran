@@ -91,10 +91,12 @@ export function PatientCartProvider({ children }) {
   return <PatientCartContext.Provider value={value}>{children}</PatientCartContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePatientCart() {
   return useContext(PatientCartContext)
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function notifyPatientCartChanged() {
   window.dispatchEvent(new Event('pp-patient-cart-changed'))
 }

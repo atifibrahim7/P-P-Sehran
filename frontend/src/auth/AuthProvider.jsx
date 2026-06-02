@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
           const me = await getMe()
           setUser(me)
         }
-      } catch (e) {
+      } catch {
         setToken(null)
         window.localStorage.removeItem('auth_token')
       } finally {
@@ -62,6 +62,7 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const ctx = useContext(AuthContext)
   if (!ctx) throw new Error('useAuth must be used within AuthProvider')

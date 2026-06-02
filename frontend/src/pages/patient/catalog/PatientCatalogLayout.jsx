@@ -19,7 +19,9 @@ export default function PatientCatalogLayout() {
       </div>
 
       <div className="flex flex-wrap gap-2 rounded-xl border border-border/80 bg-muted/30 p-1.5">
-        {tabs.map(({ to, label, icon: Icon }) => (
+        {tabs.map(({ to, label, icon }) => {
+          const Icon = icon
+          return (
           <NavLink
             key={to}
             to={to}
@@ -35,7 +37,8 @@ export default function PatientCatalogLayout() {
             <Icon className="size-4 shrink-0 opacity-80" />
             {label}
           </NavLink>
-        ))}
+          )
+        })}
       </div>
 
       <Outlet />

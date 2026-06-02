@@ -89,7 +89,7 @@ export default function PatientCartDrawer() {
     return undefined
   }, [drawerOpen])
 
-  const items = cart?.items || []
+  const items = useMemo(() => cart?.items || [], [cart])
   const cartTotal = useMemo(
     () => items.reduce((acc, it) => acc + lineTotalPatient(it), 0),
     [items],
