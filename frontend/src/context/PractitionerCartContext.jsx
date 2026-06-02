@@ -91,10 +91,12 @@ export function PractitionerCartProvider({ children }) {
   return <PractitionerCartContext.Provider value={value}>{children}</PractitionerCartContext.Provider>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function usePractitionerCart() {
   return useContext(PractitionerCartContext)
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function notifyPractitionerCartChanged() {
   window.dispatchEvent(new Event('pp-cart-changed'))
 }

@@ -12,8 +12,6 @@ import {
 import { api, getOrders, getProductsPage, getUsersPage, getVendorsPage } from '../../api/client'
 import KpiCard from '../../components/KpiCard.jsx'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { buttonVariants } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 
