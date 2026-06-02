@@ -1,6 +1,7 @@
 const swaggerUi = require('swagger-ui-express');
 
 function buildSpec() {
+	const apiBaseUrl = (process.env.APP_API_URL || process.env.PUBLIC_API_URL || 'http://localhost:3001').replace(/\/$/, '');
 	return {
 		openapi: '3.0.3',
 		info: {
@@ -8,7 +9,7 @@ function buildSpec() {
 			version: '1.0.0',
 			description: 'REST API documentation for Admin, Practitioner, and Patient portals'
 		},
-		servers: [{ url: 'http://localhost:3001/api' }],
+		servers: [{ url: `${apiBaseUrl}/api` }],
 		tags: [
 			{ name: 'Auth', description: 'Authentication endpoints' },
 			{ name: 'Users', description: 'User profiles and admin user management' },
@@ -16,6 +17,7 @@ function buildSpec() {
 			{ name: 'Products', description: 'Products catalog: blood tests and supplements' },
 			{ name: 'Orders', description: 'Orders, order items, order state' },
 			{ name: 'Payments', description: 'Stripe checkout and webhooks' },
+			{ name: 'Inuvi', description: 'Inuvi order sync, exam catalog, and webhook intake' },
 			{ name: 'Commissions', description: 'Practitioner commissions' },
 			{ name: 'Lab', description: 'Lab integration and test results' },
 			{ name: 'Patients', description: 'Practitioner patient roster and registration' }
@@ -101,7 +103,10 @@ function buildSpec() {
 						total_patient: { type: 'number' },
 						total_practitioner: { type: 'number' },
 						createdAt: { type: 'string' },
-						paidAt: { type: 'string' }
+						paidAt: { type: 'string' },
+						inuviOrderId: { type: ['string', 'null'], description: 'Inuvi order UUID when sync succeeded' },
+						inuviSyncError: { type: ['string', 'null'], description: 'Last Inuvi sync error (soft-fail)' },
+						inuviSyncedAt: { type: ['string', 'null'] }
 					},
 					required: ['id', 'type', 'practitionerId', 'state', 'total_patient', 'total_practitioner', 'createdAt']
 				},
@@ -288,6 +293,28 @@ function buildSpec() {
 						emailSent: { type: 'boolean' }
 					},
 					required: ['userId', 'patientId', 'email', 'name', 'forenames', 'surname', 'policyNumber', 'emailSent']
+				},
+				PatientDetail: {
+					type: 'object',
+					properties: {
+						patientId: { type: 'integer' },
+						userId: { type: 'integer' },
+						name: { type: 'string' },
+						email: { type: 'string' },
+						title: { type: 'string' },
+						forenames: { type: 'string' },
+						surname: { type: 'string' },
+						dateOfBirth: { type: 'string', format: 'date' },
+						gender: { $ref: '#/components/schemas/PatientGender' },
+						policyNumber: { type: 'string' },
+						clientReference2: { type: ['string', 'null'] },
+						nationalInsuranceNumber: { type: ['string', 'null'] },
+						smokerStatus: { $ref: '#/components/schemas/SmokerStatus' },
+						primaryPractitionerName: { type: ['string', 'null'] },
+						addresses: { type: 'array', items: { $ref: '#/components/schemas/PatientAddressInput' } },
+						contacts: { type: 'array', items: { $ref: '#/components/schemas/PatientContactInput' } }
+					},
+					required: ['patientId', 'userId', 'name', 'email', 'forenames', 'surname', 'dateOfBirth', 'gender', 'policyNumber', 'smokerStatus', 'addresses', 'contacts']
 				}
 			}
 		},
@@ -344,6 +371,24 @@ function buildSpec() {
 					summary: 'List users (admin)',
 					parameters: [{ in: 'query', name: 'role', schema: { $ref: '#/components/schemas/Role' } }],
 					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } }
+				},
+				post: {
+					tags: ['Users'],
+					summary: 'Create user (admin). Practitioners require practitionerProfile with demographics, addresses, contacts.',
+					responses: { '201': { description: 'Created' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/users/{id}': {
+				parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+				get: {
+					tags: ['Users'],
+					summary: 'Get user by id (admin); includes practitionerProfile for practitioners',
+					responses: { '200': { description: 'OK' }, '404': { description: 'Not Found' }, '403': { description: 'Forbidden' } }
+				},
+				put: {
+					tags: ['Users'],
+					summary: 'Update user (admin)',
+					responses: { '200': { description: 'OK' }, '404': { description: 'Not Found' }, '403': { description: 'Forbidden' } }
 				}
 			},
 			'/patients': {
@@ -365,6 +410,23 @@ function buildSpec() {
 						content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatePractitionerPatientRequest' } } }
 					},
 					responses: { '201': { description: 'Created' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/patients/{userId}': {
+				parameters: [{ name: 'userId', in: 'path', required: true, schema: { type: 'integer' } }],
+				get: {
+					tags: ['Patients'],
+					summary: 'Get patient details including addresses and contacts',
+					responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' }, '404': { description: 'Not Found' } }
+				},
+				put: {
+					tags: ['Patients'],
+					summary: 'Update patient details, addresses, and contacts',
+					requestBody: {
+						required: true,
+						content: { 'application/json': { schema: { $ref: '#/components/schemas/CreatePractitionerPatientRequest' } } }
+					},
+					responses: { '200': { description: 'OK' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' }, '404': { description: 'Not Found' } }
 				}
 			},
 			'/vendors': {
@@ -420,6 +482,14 @@ function buildSpec() {
 					summary: 'Get order with items',
 					parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
 					responses: { '200': { description: 'OK' }, '404': { description: 'Not Found' }, '403': { description: 'Forbidden' } }
+				}
+			},
+			'/orders/{id}/inuvi-sync': {
+				post: {
+					tags: ['Orders'],
+					summary: 'Retry Inuvi sync for an order without inuviOrderId (admin)',
+					parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'integer' } }],
+					responses: { '200': { description: 'OK' }, '400': { description: 'Bad Request' }, '403': { description: 'Forbidden' } }
 				}
 			},
 			'/orders/{id}/state': {
@@ -478,6 +548,110 @@ function buildSpec() {
 					responses: { '200': { description: 'Received' }, '400': { description: 'Bad Request' } }
 				}
 			},
+			'/inuvi/webhook': {
+				post: {
+					tags: ['Inuvi'],
+					security: [],
+					summary: 'Inuvi webhook intake',
+					requestBody: {
+						required: true,
+						content: {
+							'application/json': {
+								schema: {
+									type: 'object',
+									properties: {
+										test_webhook: { type: 'string' },
+										event: {
+											type: 'object',
+											properties: {
+												order_exam_id: { type: 'string' },
+												order_id: { type: 'string' },
+												policy_number: { type: 'string' },
+												client_ref_2: { type: 'string' },
+												exam_type: { type: 'string' },
+												alert_status: { type: 'string' },
+												event_id: { type: 'string' },
+												activity_description: { type: 'string' },
+												activity_comment: { type: 'string' },
+												activity_created_date: { type: 'string' }
+											},
+											required: ['order_exam_id', 'order_id', 'policy_number', 'exam_type', 'alert_status', 'event_id', 'activity_description', 'activity_comment', 'activity_created_date'],
+										},
+										required: ['test_webhook', 'event'],
+									},
+								},
+							}
+						}
+					}
+				},
+				responses: { '200': { description: 'Received' }, '401': { description: 'Invalid signature' }, '403': { description: 'Forbidden' } }
+			},
+			'/inuvi/documents': {
+			get: {
+				tags: ['Inuvi'],
+				summary: 'List uploaded documents (admin, practitioner)',
+				parameters: [
+					{ in: 'query', name: 'q', schema: { type: 'string' }, description: 'Search by original filename' },
+					{ in: 'query', name: 'page', schema: { type: 'integer', minimum: 1, default: 1 } },
+					{ in: 'query', name: 'pageSize', schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 } }
+				],
+				responses: {
+					'200': { description: 'OK' },
+					'401': { description: 'Unauthorized' },
+					'403': { description: 'Forbidden' }
+				}
+			}
+		},
+		'/inuvi/document-upload': {
+			post: {
+				tags: ['Inuvi'],
+				security: [{ bearerAuth: [] }],
+				summary: 'Upload a document (INUIVI_UPLOAD_TOKEN required). Preserves original filename; appends (n) on duplicate.',
+				requestBody: {
+					required: true,
+					content: {
+						'multipart/form-data': {
+							schema: {
+								type: 'object',
+								properties: {
+									file: { type: 'string', format: 'binary', description: 'Document to upload (max 20MB)' }
+								},
+								required: ['file']
+							}
+						}
+					}
+				},
+				responses: {
+					'200': {
+						description: 'Uploaded',
+						content: {
+							'application/json': {
+								schema: {
+									allOf: [{ $ref: '#/components/schemas/SuccessEnvelope' }],
+									properties: {
+										data: {
+											type: 'object',
+											properties: {
+												id: { type: 'integer' },
+												originalName: { type: 'string' },
+												url: { type: 'string' },
+												publicId: { type: 'string' },
+												format: { type: 'string' },
+												bytes: { type: 'integer' }
+											},
+											required: ['id', 'originalName', 'url', 'publicId']
+										}
+									}
+								}
+							}
+						}
+					},
+					'400': { description: 'No file / file too large' },
+					'401': { description: 'Unauthorized' },
+					'503': { description: 'Cloudinary not configured' }
+				}
+			}
+		},
 			'/lab/results': {
 				get: { tags: ['Lab'], summary: 'List lab results (role-scoped)', responses: { '200': { description: 'OK' }, '403': { description: 'Forbidden' } } }
 			},

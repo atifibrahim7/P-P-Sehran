@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, ChevronLeft, Package } from 'lucide-react'
-import { addCartItem, clearCart, getPractitionerPatients } from '../../api/client'
+import { addCartItem, clearCart, getPractitionerPatients, getInuviExamTypes } from '../../api/client'
 import {
   notifyPractitionerCartChanged,
   PRACTITIONER_PATIENT_HINT_KEY,
@@ -23,11 +23,6 @@ import { cn } from '@/lib/utils'
 import { parsePositiveWhole } from '@/lib/quantity'
 
 const PATIENT_PAGE_SIZE = 25
-const LAB_TEST_OPTIONS = [
-  { value: 'home_kit', label: 'Home kit' },
-  { value: 'lab_visit', label: 'Lab visit' },
-  { value: 'phlebotomy', label: 'Phlebotomy' },
-]
 
 function money(n) {
   const x = Number(n)
@@ -53,7 +48,9 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
   const [target, setTarget] = useState('self')
   const [patientUserId, setPatientUserId] = useState('')
   const [selectedPatientMeta, setSelectedPatientMeta] = useState(null)
-  const [labTestCategory, setLabTestCategory] = useState('')
+  const [inuviExamTypeId, setInuviExamTypeId] = useState('')
+  const [examTypes, setExamTypes] = useState([])
+  const [loadingExamTypes, setLoadingExamTypes] = useState(false)
   const [patientPickerOpen, setPatientPickerOpen] = useState(false)
 
   const [pickerSearch, setPickerSearch] = useState('')
@@ -84,7 +81,7 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
     setQuantity(1)
     setError(null)
     setTarget('self')
-    setLabTestCategory('')
+    setInuviExamTypeId('')
     setPatientPickerOpen(false)
     setPickerSearch('')
     setDebouncedPickerSearch('')
@@ -116,6 +113,15 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
     } else {
       setPatientUserId('')
       setSelectedPatientMeta(null)
+    }
+
+    const isLab = product?.category === 'lab_test' || product?.type === 'lab_test'
+    if (isLab) {
+      setLoadingExamTypes(true)
+      getInuviExamTypes()
+        .then((res) => setExamTypes(Array.isArray(res?.data) ? res.data : []))
+        .catch(() => setExamTypes([]))
+        .finally(() => setLoadingExamTypes(false))
     }
   }, [open, product])
 
@@ -190,8 +196,8 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
   const buildPayload = () => {
     const payload = { productId: product.id, quantity: qty }
     if (isLabTestProduct) {
-      if (!labTestCategory) throw new Error('Select lab test category')
-      payload.labTestCategory = labTestCategory
+      if (!inuviExamTypeId) throw new Error('Select exam type')
+      payload.inuviExamTypeId = Number(inuviExamTypeId)
     }
     if (target === 'patient') {
       if (!patientUserId) throw new Error('Select a patient')
@@ -578,27 +584,21 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
 
               {isLabTestProduct ? (
                 <div className="space-y-2">
-                  <Label>Lab test category</Label>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    {LAB_TEST_OPTIONS.map((opt) => {
-                      const active = labTestCategory === opt.value
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setLabTestCategory(opt.value)}
-                          className={cn(
-                            'rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors',
-                            active
-                              ? 'border-primary bg-primary/10 text-foreground'
-                              : 'border-border bg-card hover:bg-muted/50',
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  <Label htmlFor="exam-type-select">Exam type</Label>
+                  <select
+                    id="exam-type-select"
+                    value={inuviExamTypeId}
+                    onChange={(e) => setInuviExamTypeId(e.target.value)}
+                    disabled={loadingExamTypes}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">{loadingExamTypes ? 'Loading…' : 'Select exam type'}</option>
+                    {examTypes.map((et) => (
+                      <option key={et.id} value={et.id}>
+                        {et.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               ) : null}
 
@@ -631,7 +631,7 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
                 type="button"
                 onClick={save}
                 disabled={
-                  saving || (target === 'patient' && !patientUserId) || (isLabTestProduct && !labTestCategory)
+                  saving || (target === 'patient' && !patientUserId) || (isLabTestProduct && !inuviExamTypeId)
                 }
               >
                 {saving ? 'Saving…' : 'Save to cart'}

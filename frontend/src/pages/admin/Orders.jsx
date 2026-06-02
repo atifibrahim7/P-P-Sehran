@@ -66,6 +66,7 @@ export default function AdminOrders() {
                   <TableHead className="text-right">Pract. total</TableHead>
                   <TableHead>Practitioner</TableHead>
                   <TableHead>Patient</TableHead>
+                  <TableHead>Inuvi</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -102,6 +103,19 @@ export default function AdminOrders() {
                       <span className="line-clamp-2 text-sm font-medium text-foreground" title={o.patientName || ''}>
                         {o.patientName ?? '—'}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      {o.inuviOrderId ? (
+                        <Badge variant="secondary" className="font-mono text-[10px]">
+                          linked
+                        </Badge>
+                      ) : o.inuviSyncError ? (
+                        <Badge variant="destructive" className="text-[10px]">
+                          error
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button

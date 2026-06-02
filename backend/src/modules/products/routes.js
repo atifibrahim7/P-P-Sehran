@@ -116,6 +116,7 @@ function withComputedFields(product) {
 		imageLink: primary || defaultImageLink(normalizedCategory),
 		imageUrl: primary,
 		imageUrls,
+		inuviExamTypeId: product.inuviExamTypeId ?? null,
 	};
 }
 
@@ -197,6 +198,12 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 
 	const expectedVendorType = dbCategoryToVendorType(dbCat);
 	let vendorId = req.body?.vendorId != null ? Number(req.body.vendorId) : null;
+	let inuviExamTypeId = null;
+	if (req.body?.inuviExamTypeId !== undefined && req.body.inuviExamTypeId !== null) {
+		const n = Number(req.body.inuviExamTypeId);
+		if (Number.isNaN(n)) return badRequest(res, 'inuviExamTypeId must be an integer or null');
+		inuviExamTypeId = n;
+	}
 	const existingSku = await prisma.product.findFirst({ where: { labTestCode: sku } });
 	if (existingSku) return badRequest(res, 'SKU already exists');
 	if (vendorId) {
@@ -226,6 +233,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 			practitionerPrice: prices.practitionerPrice,
 			labTestCode: sku,
 			imageUrl: imageLink || null,
+			...(inuviExamTypeId != null ? { inuviExamTypeId } : {}),
 		},
 		include: { vendor: true, productImages: { orderBy: { sortOrder: 'asc' } } },
 	});
@@ -308,6 +316,15 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
 		if (Number.isNaN(parsedPrice) || parsedPrice < 0) return badRequest(res, 'price must be a non-negative number');
 		data.patientPrice = parsedPrice;
 		data.practitionerPrice = parsedPrice;
+	}
+	if (req.body?.inuviExamTypeId !== undefined) {
+		const v = req.body.inuviExamTypeId;
+		if (v === null) data.inuviExamTypeId = null;
+		else {
+			const n = Number(v);
+			if (Number.isNaN(n)) return badRequest(res, 'inuviExamTypeId must be an integer or null');
+			data.inuviExamTypeId = n;
+		}
 	}
 
 	const product = await prisma.product.update({

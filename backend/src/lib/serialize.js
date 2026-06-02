@@ -33,6 +33,10 @@ function serializeOrder(order) {
 		totalAmount: Number(order.totalAmount),
 		status: order.status,
 		paymentStatus: order.paymentStatus,
+		inuviOrderId: order.inuviOrderId ?? null,
+		inuviSyncError: order.inuviSyncError ?? null,
+		inuviSyncedAt:
+			order.inuviSyncedAt instanceof Date ? order.inuviSyncedAt.toISOString() : order.inuviSyncedAt ?? null,
 	};
 	const pru = order.practitioner?.user;
 	if (pru) {
@@ -55,6 +59,7 @@ function serializeOrderItem(it) {
 		quantity: it.quantity ?? 1,
 		unit_patient_price: Number(it.patientPrice),
 		unit_practitioner_price: Number(it.practitionerPrice),
+		labTestCategory: it.labTestCategory ?? null,
 	};
 	if (it.product) {
 		base.product = {

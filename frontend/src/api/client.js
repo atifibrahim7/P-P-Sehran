@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:3001/api'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL 
 
 let token = null
 
@@ -164,7 +164,9 @@ export async function uploadProductImage(file) {
 export const createVendor = (payload) => api('/vendors', { method: 'POST', body: JSON.stringify(payload) })
 export const updateVendor = (id, payload) => api(`/vendors/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
 export const createUser = (payload) => api('/users', { method: 'POST', body: JSON.stringify(payload) })
+export const getUser = (id) => api(`/users/${id}`)
 export const updateUser = (id, payload) => api(`/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+export const retryOrderInuviSync = (id) => api(`/orders/${id}/inuvi-sync`, { method: 'POST' })
 export const getPractitionerPatients = (params = {}) => {
   const search = new URLSearchParams()
   if (params.q != null && params.q !== '') search.set('q', String(params.q))
@@ -174,8 +176,13 @@ export const getPractitionerPatients = (params = {}) => {
   return api(`/patients${q ? `?${q}` : ''}`)
 }
 
+export const getPractitionerPatient = (userId) => api(`/patients/${userId}`)
+
 export const createPractitionerPatient = (body) =>
   api('/patients', { method: 'POST', body: JSON.stringify(body) })
+export const updatePractitionerPatient = (userId, body) =>
+  api(`/patients/${userId}`, { method: 'PUT', body: JSON.stringify(body) })
+export const deletePatientByUserId = (userId) => api(`/patients/${userId}`, { method: 'DELETE' })
 
 // Carts (server-side; practitioner + patient)
 export const getCart = (params = {}) => {
@@ -196,6 +203,7 @@ export const checkoutCart = (payload) =>
   api('/carts/checkout', { method: 'POST', body: JSON.stringify(payload) })
 export const clearCart = (payload = {}) =>
   api('/carts/clear', { method: 'POST', body: JSON.stringify(payload) })
+export const getInuviExamTypes = () => api('/inuvi/exam-types')
 
 // Orders
 export const getOrdersPage = (params = {}) => {

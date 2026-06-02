@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const { ok, created, badRequest } = require('../../utils/response');
 const { authenticateToken, requireRole } = require('../../middleware/auth');
-const { createOrder, listOrdersPageForUser } = require('./service');
+const { createOrder, listOrdersPageForUser, retryInuviSync } = require('./service');
 const { loadOrderWithRelations, serializeOrder, serializeOrderItem } = require('../../lib/serialize');
 
 const router = Router();
@@ -11,6 +11,18 @@ router.get('/', authenticateToken, async (req, res, next) => {
 		const result = await listOrdersPageForUser(req.user, req.query);
 		return ok(res, result);
 	} catch (e) {
+		return next(e);
+	}
+});
+
+router.post('/:id/inuvi-sync', authenticateToken, requireRole('admin'), async (req, res, next) => {
+	try {
+		const result = await retryInuviSync(req.params.id);
+		return ok(res, result);
+	} catch (e) {
+		if (e.status) {
+			return res.status(e.status).json({ success: false, error: { message: e.message } });
+		}
 		return next(e);
 	}
 });

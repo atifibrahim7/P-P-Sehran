@@ -688,6 +688,15 @@ export default function PractitionerOrders() {
                 <p>
                   <span className="text-muted-foreground">Placed:</span> {formatDate(detail.order.createdAt)}
                 </p>
+                {detail.order.inuviOrderId ? (
+                  <p className="break-all font-mono text-xs">
+                    <span className="text-muted-foreground">Inuvi:</span> {detail.order.inuviOrderId}
+                  </p>
+                ) : detail.order.inuviSyncError ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-400">
+                    <span className="text-muted-foreground">Inuvi:</span> sync pending — see order page or admin
+                  </p>
+                ) : null}
                 {detail.order.type === 'patient' ? (
                   <p>
                     <span className="text-muted-foreground">Patient total:</span>{' '}
