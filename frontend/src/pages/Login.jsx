@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-
+import  logo from '@/assets/Logo.png'
 export default function LoginPage() {
   const { login, error, setError } = useAuth()
   const [email, setEmail] = useState('')
@@ -32,7 +32,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex flex-col gap-3 min-h-svh items-center justify-center bg-background px-4 py-10 bg-[#F3F0EA]  ">
-      <img src="../../../src/assets/Logo.png" alt="Logo" className="w-[450px] h-24 mx-auto my-5 " />
+      <img src={logo} alt="Logo" className="w-[450px] h-24 mx-auto my-5 " />
       <Card className="w-full max-w-md border-border/80 shadow-lg">
       
         <CardHeader className="space-y-1 text-center">

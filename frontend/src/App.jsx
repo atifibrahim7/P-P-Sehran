@@ -39,6 +39,7 @@ import AdminDashboard from './pages/dashboard/AdminDashboard.jsx'
 import PractitionerDashboard from './pages/dashboard/PractitionerDashboard.jsx'
 import PatientDashboard from './pages/dashboard/PatientDashboard.jsx'
 import Sidebar from './components/Sidebar.jsx'
+import logo from '@/assets/Logo.png'
 
 function Protected({ roles }) {
   const { user, loading } = useAuth()
@@ -114,7 +115,7 @@ function Shell() {
               </Button>
             ) : null}
             <span className="min-w-0">
-          <img src="../../../src/assets/MainLogo.png" alt="Logo" className="h-10 w-[150px]" />
+              <img src={logo} alt="Logo" className="h-10 w-[150px]" />
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
