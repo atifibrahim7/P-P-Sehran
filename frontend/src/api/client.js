@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL  || 'https://longenyx.onrender.com'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL  || 'https://longenyx.onrender.com/api'
 
 let token = null
 
