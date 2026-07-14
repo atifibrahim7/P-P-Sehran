@@ -25,6 +25,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/currency'
 
 function emptyForm() {
   return {
@@ -246,8 +247,8 @@ export default function ProductManagement({ category }) {
               p.vendorName ??
               vendors.find((v) => Number(v.id) === Number(p.vendorId))?.name ??
               (p.vendorId != null ? `Vendor #${p.vendorId}` : '—')
-            const pp = Number(p.patient_price ?? p.price ?? 0).toFixed(2)
-            const pr = Number(p.practitioner_price ?? p.price ?? 0).toFixed(2)
+            const pp = Number(p.patient_price ?? p.price ?? 0)
+            const pr = Number(p.practitioner_price ?? p.price ?? 0)
             return (
               <Card
                 key={p.id}
@@ -284,9 +285,9 @@ export default function ProductManagement({ category }) {
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prices</p>
                       <p className="font-semibold tabular-nums text-primary">
-                        Patient ${pp}
+                        Patient {formatMoney(pp)}
                         <span className="mx-1 text-muted-foreground">·</span>
-                        Practitioner ${pr}
+                        Practitioner {formatMoney(pr)}
                       </p>
                     </div>
                     <div >

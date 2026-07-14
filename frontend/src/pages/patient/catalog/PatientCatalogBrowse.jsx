@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Skeleton } from '@/components/ui/skeleton'
 import { ProductSwipeGallery } from '@/components/ProductSwipeGallery'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/currency'
 
 export default function PatientCatalogBrowse({ category }) {
   const vendorListType = category === 'supplement' ? 'supplement' : 'lab'
@@ -183,7 +184,7 @@ export default function PatientCatalogBrowse({ category }) {
               p.vendorName ??
               vendors.find((v) => Number(v.id) === Number(p.vendorId))?.name ??
               (p.vendorId != null ? `Vendor #${p.vendorId}` : '—')
-            const pp = Number(p.patient_price ?? p.price ?? 0).toFixed(2)
+            const pp = Number(p.patient_price ?? p.price ?? 0)
             return (
               <Card
                 key={p.id}
@@ -217,7 +218,7 @@ export default function PatientCatalogBrowse({ category }) {
                   <div className="flex items-start justify-between gap-2 border-t border-border/60 pt-3">
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Your price</p>
-                      <p className="font-semibold tabular-nums text-primary">${pp}</p>
+                      <p className="font-semibold tabular-nums text-primary">{formatMoney(pp)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vendor</p>

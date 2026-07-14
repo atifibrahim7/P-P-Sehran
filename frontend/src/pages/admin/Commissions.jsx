@@ -7,11 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-
-function formatMoney(n) {
-  if (n == null || Number.isNaN(n)) return '—'
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n)
-}
+import { formatMoney } from '@/lib/currency'
 
 function formatDate(iso) {
   if (!iso) return '—'

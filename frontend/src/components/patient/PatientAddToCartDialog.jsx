@@ -15,12 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { parsePositiveWhole } from '@/lib/quantity'
-
-function money(n) {
-  const x = Number(n)
-  if (Number.isNaN(x)) return '0.00'
-  return x.toFixed(2)
-}
+import { formatMoney } from '@/lib/currency'
 
 export default function PatientAddToCartDialog({ open, onOpenChange, product }) {
   const [quantity, setQuantity] = useState(1)
@@ -180,7 +175,7 @@ export default function PatientAddToCartDialog({ open, onOpenChange, product }) 
 
             <div className="rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{preview.label}</p>
-              <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">${money(preview.subtotal)}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{formatMoney(preview.subtotal)}</p>
             </div>
 
             {error ? (

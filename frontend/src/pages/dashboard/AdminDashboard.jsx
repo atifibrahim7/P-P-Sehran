@@ -14,11 +14,7 @@ import KpiCard from '../../components/KpiCard.jsx'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-
-function formatMoney(n) {
-  if (n == null || Number.isNaN(n)) return '—'
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n)
-}
+import { formatMoney } from '@/lib/currency'
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)

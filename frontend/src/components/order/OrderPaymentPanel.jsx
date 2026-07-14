@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import { formatMoney } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import OrderStateBadge from './OrderStateBadge.jsx'
 
@@ -116,7 +117,9 @@ export default function OrderPaymentPanel({
             <CardContent className="space-y-4 pt-0">
               <div className="rounded-xl border border-border/60 bg-background/80 px-4 py-3 shadow-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{amountLabel}</p>
-                <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-foreground">${amountDue}</p>
+                <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+                  {formatMoney(amountDue)}
+                </p>
                 {!adminView && showPay ? (
                   <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <ShieldCheck className="size-3.5 shrink-0 opacity-80" />

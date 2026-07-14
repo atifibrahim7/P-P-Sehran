@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { parsePositiveWhole } from '@/lib/quantity'
+import { formatMoney } from '@/lib/currency'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 function lineTotalPatient(it) {
@@ -148,7 +149,7 @@ export default function PractitionerCartDrawer() {
                         </Button>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                        Your total ${lineTotalPractitioner(it).toFixed(2)}
+                        Your total {formatMoney(lineTotalPractitioner(it))}
                       </p>
                       <label className="mt-2 flex items-center gap-2 text-xs">
                         Qty
@@ -171,7 +172,7 @@ export default function PractitionerCartDrawer() {
               )}
                   {self?.practitionerSubtotal > 0 ? (
                 <p className="text-xs tabular-nums text-muted-foreground">
-                  Subtotal ${Number(self.practitionerSubtotal).toFixed(2)}
+                  Subtotal {formatMoney(self.practitionerSubtotal)}
                 </p>
               ) : null}
             </section>
@@ -193,7 +194,7 @@ export default function PractitionerCartDrawer() {
                         <p className="font-medium">{block.patientName}</p>
                         <p className="text-xs text-muted-foreground">{block.patientEmail}</p>
                         <p className="mt-1 text-xs text-primary">
-                          Est. commission ${Number(block.estimatedCommission || 0).toFixed(2)}
+                          Est. commission {formatMoney(block.estimatedCommission || 0)}
                         </p>
                       </div>
                       <ul className="space-y-2">
@@ -212,7 +213,7 @@ export default function PractitionerCartDrawer() {
                               </Button>
                             </div>
                             <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                              Patient pays ${lineTotalPatient(it).toFixed(2)}
+                              Patient pays {formatMoney(lineTotalPatient(it))}
                             </p>
                             <label className="mt-2 flex items-center gap-2 text-xs">
                               Qty

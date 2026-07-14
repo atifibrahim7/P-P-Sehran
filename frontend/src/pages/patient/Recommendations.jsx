@@ -4,6 +4,7 @@ import { getOrders, startCheckout } from '../../api/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/currency'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function PatientRecommendations() {
@@ -111,7 +112,7 @@ export default function PatientRecommendations() {
                     <Link to={`/orders/${o.id}`} className="font-medium text-primary underline-offset-4 hover:underline">
                       Order #{o.id}
                     </Link>
-                    <p className="text-sm text-muted-foreground">Total due: ${Number(o.total_patient ?? 0).toFixed(2)}</p>
+                    <p className="text-sm text-muted-foreground">Total due: {formatMoney(o.total_patient ?? 0)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Link

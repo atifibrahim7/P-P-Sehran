@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { Eye } from 'lucide-react'
+import { formatMoney } from '@/lib/currency'
 
 const COMMISSIONS_ANCHOR_ID = 'practitioner-commissions'
 
@@ -36,11 +37,6 @@ const COMMISSION_PAYOUT_OPTIONS = [
   { value: 'PENDING', label: 'Pending' },
   { value: 'PAID', label: 'Paid' },
 ]
-
-function formatMoney(n) {
-  if (n == null || Number.isNaN(n)) return '—'
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n)
-}
 
 function formatDate(iso) {
   if (!iso) return '—'

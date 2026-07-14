@@ -1,0 +1,14 @@
+# SPA fallback for React Router (Hostinger Apache / LiteSpeed).
+# Serves index.html for routes that are not real files or folders.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Leave existing files and directories alone (assets, favicon, etc.)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Everything else goes to the app shell
+  RewriteRule ^ index.html [L]
+</IfModule>

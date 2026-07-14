@@ -20,15 +20,10 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/currency'
 import { parsePositiveWhole } from '@/lib/quantity'
 
 const PATIENT_PAGE_SIZE = 25
-
-function money(n) {
-  const x = Number(n)
-  if (Number.isNaN(x)) return '0.00'
-  return x.toFixed(2)
-}
 
 function persistPatientChoice(p) {
   if (typeof sessionStorage === 'undefined') return
@@ -605,10 +600,10 @@ export default function AddToCartDialog({ open, onOpenChange, product }) {
               {preview ? (
                 <div className="rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{preview.label}</p>
-                  <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">${money(preview.subtotal)}</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{formatMoney(preview.subtotal)}</p>
                   <div className="mt-2 flex items-center justify-between gap-2 border-t border-border/60 pt-2">
                     <span className="text-xs text-muted-foreground">{preview.commissionLabel}</span>
-                    <span className="text-sm font-semibold tabular-nums text-primary">${money(preview.commission)}</span>
+                    <span className="text-sm font-semibold tabular-nums text-primary">{formatMoney(preview.commission)}</span>
                   </div>
                 </div>
               ) : null}

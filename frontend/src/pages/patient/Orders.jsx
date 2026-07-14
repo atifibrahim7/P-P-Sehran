@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { CreditCard, Loader2 } from 'lucide-react'
+import { formatMoney } from '@/lib/currency'
 
 const FILTER_OPTIONS = [
   { value: 'all', label: 'All orders' },
@@ -23,11 +24,6 @@ const FILTER_OPTIONS = [
   { value: 'processing', label: 'In progress' },
   { value: 'done', label: 'Done' },
 ]
-
-function formatMoney(n) {
-  if (n == null || Number.isNaN(n)) return '—'
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n)
-}
 
 function formatDate(iso) {
   if (!iso) return '—'

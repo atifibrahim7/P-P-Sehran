@@ -18,6 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/currency'
 import { parsePositiveWhole } from '@/lib/quantity'
 
 const FOCUS_SESSION_KEY = 'pp_cart_scroll_recommendations'
@@ -234,7 +235,7 @@ export default function PatientCartDrawer() {
                               Order #{o.id}
                             </Link>
                             <p className="text-xs tabular-nums text-muted-foreground">
-                              ${Number(o.total_patient ?? 0).toFixed(2)}
+                              {formatMoney(o.total_patient ?? 0)}
                             </p>
                           </div>
                           <div className="flex shrink-0 gap-1.5">
@@ -294,24 +295,24 @@ export default function PatientCartDrawer() {
                     onChange={(e) => setIncludePendingInSummary(e.target.checked)}
                   />
                   <span className="font-medium">Include suggested orders</span>
-                  <span className="ml-auto tabular-nums text-muted-foreground">${pendingTotal.toFixed(2)}</span>
+                  <span className="ml-auto tabular-nums text-muted-foreground">{formatMoney(pendingTotal)}</span>
                 </Label>
               ) : null}
 
               <div className="space-y-1.5 rounded-xl border border-border/60 bg-muted/20 px-3 py-3 text-sm">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-muted-foreground">Cart</span>
-                  <span className="tabular-nums font-medium">${cartTotal.toFixed(2)}</span>
+                  <span className="tabular-nums font-medium">{formatMoney(cartTotal)}</span>
                 </div>
                 {includePendingInSummary && pendingOrders.length > 0 ? (
                   <div className="flex items-baseline justify-between gap-2 text-muted-foreground">
                     <span>Suggested (unpaid)</span>
-                    <span className="tabular-nums">${pendingTotal.toFixed(2)}</span>
+                    <span className="tabular-nums">{formatMoney(pendingTotal)}</span>
                   </div>
                 ) : null}
                 <div className="flex items-baseline justify-between gap-2 border-t border-border/60 pt-1.5">
                   <span className="font-semibold">{includePendingInSummary ? 'Total' : 'Checkout total'}</span>
-                  <span className="text-lg font-bold tabular-nums text-primary">${summaryTotal.toFixed(2)}</span>
+                  <span className="text-lg font-bold tabular-nums text-primary">{formatMoney(summaryTotal)}</span>
                 </div>
               </div>
 
@@ -354,7 +355,7 @@ function CartLine({ it, onQty, onRemove }) {
             </Badge>
           </div>
           <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-            ${Number(it.product?.patient_price ?? it.product?.price ?? 0).toFixed(2)} × {it.quantity} = ${lineTotalPatient(it).toFixed(2)}
+            {formatMoney(it.product?.patient_price ?? it.product?.price ?? 0)} × {it.quantity} = {formatMoney(lineTotalPatient(it))}
           </p>
         </div>
         <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={() => onRemove(it.id)}>

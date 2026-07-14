@@ -8,6 +8,7 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/currency'
 
 function patientLineTotal(it) {
   const p = it.product
@@ -200,7 +201,7 @@ export default function PatientDashboard() {
                       >
                         <span className="min-w-0 font-medium leading-snug">{it.product?.name ?? 'Product'}</span>
                         <span className="shrink-0 tabular-nums text-muted-foreground">
-                          ×{it.quantity} · ${patientLineTotal(it).toFixed(2)}
+                          ×{it.quantity} · {formatMoney(patientLineTotal(it))}
                         </span>
                       </li>
                     ))}
@@ -211,7 +212,7 @@ export default function PatientDashboard() {
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
                     <span className="text-sm font-semibold tabular-nums">
                       Cart subtotal (suggested){' '}
-                      <span className="text-primary">${data.suggestedCartTotal.toFixed(2)}</span>
+                      <span className="text-primary">{formatMoney(data.suggestedCartTotal)}</span>
                     </span>
                     <Link
                       to="/patient/cart?focus=recommendations"
@@ -246,7 +247,7 @@ export default function PatientDashboard() {
                             Order #{o.id}
                           </Link>
                           <p className="text-sm text-muted-foreground tabular-nums">
-                            Due: ${Number(o.total_patient ?? 0).toFixed(2)}
+                            Due: {formatMoney(o.total_patient ?? 0)}
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
