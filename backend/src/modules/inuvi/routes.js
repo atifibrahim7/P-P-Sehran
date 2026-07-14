@@ -20,6 +20,22 @@ const documentUpload = multer({
 	limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB
 });
 
+const DOCUMENT_CLOUDINARY_FOLDER =
+	process.env.CLOUDINARY_INUVI_DOCUMENT_FOLDER || 'document-storage-api-inuivi';
+
+function resolveDocumentUploadOptions(file, finalName, ext) {
+	const isImage = file.mimetype?.startsWith('image/');
+	const resourceType = isImage ? 'image' : 'raw';
+	const baseId = path.basename(finalName, ext);
+	// Raw assets need the extension in public_id so Cloudinary dashboard downloads keep the file type.
+	const publicId = resourceType === 'raw' && ext ? `${baseId}${ext}` : baseId;
+	return {
+		folder: DOCUMENT_CLOUDINARY_FOLDER,
+		public_id: publicId,
+		resource_type: resourceType,
+		overwrite: false,
+	};
+}
 let cloudinaryConfigured = false;
 function configureCloudinary() {
 	if (cloudinaryConfigured) return true;
@@ -125,7 +141,7 @@ router.post('/webhook', async (req, res) => {
 /**
  * POST /api/inuvi/document-upload
  * multipart field name: file
- * Authenticated users only. Uploads a document to the inuivi-documents Cloudinary folder.
+ * Authenticated users only. Uploads a document to the document-storage-api-inuivi Cloudinary folder.
  */
 function authenticateUploadToken(req, res, next) {
 	const staticToken = process.env.INUIVI_UPLOAD_TOKEN;
@@ -191,9 +207,11 @@ router.post(
 				finalName = `${base}(${n})${ext}`;
 			}
 
+			const uploadOptions = resolveDocumentUploadOptions(req.file, finalName, ext);
+
 			const result = await new Promise((resolve, reject) => {
 				const stream = cloudinary.uploader.upload_stream(
-					{ folder: 'inuivi-documents', public_id: path.basename(finalName, ext), resource_type: 'image', overwrite: false },
+					uploadOptions,
 					(err, data) => {
 						if (err) reject(err);
 						else resolve(data);
