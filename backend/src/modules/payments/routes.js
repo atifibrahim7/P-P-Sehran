@@ -72,7 +72,7 @@ async function loadOrdersForPatientCheckout(orderIds, patientUserId) {
 			const unitAmount = Math.round(unit * 100);
 			lineItems.push({
 				price_data: {
-					currency: 'usd',
+					currency: 'gbp',
 					product_data: { name },
 					unit_amount: unitAmount,
 				},
@@ -112,7 +112,7 @@ async function loadSelfOrderForPractitionerCheckout(orderId, practitionerUserId)
 		const unitAmount = Math.round(unit * 100);
 		return {
 			price_data: {
-				currency: 'usd',
+				currency: 'gbp',
 				product_data: { name },
 				unit_amount: unitAmount,
 			},
