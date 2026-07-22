@@ -125,6 +125,7 @@ function serializeTestResult(r) {
 		patientName: o?.patient?.user?.name ?? null,
 		policyNumber: o?.patient?.policyNumber ?? o?.practitioner?.policyNumber ?? null,
 		practitionerName: o?.practitioner?.user?.name ?? null,
+		orderType: o?.type ?? null,
 	};
 }
 
