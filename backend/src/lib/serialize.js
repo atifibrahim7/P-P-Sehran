@@ -34,6 +34,7 @@ function serializeOrder(order) {
 		status: order.status,
 		paymentStatus: order.paymentStatus,
 		inuviOrderId: order.inuviOrderId ?? null,
+		inuviRef: order.inuviRef ?? null,
 		inuviSyncError: order.inuviSyncError ?? null,
 		inuviSyncedAt:
 			order.inuviSyncedAt instanceof Date ? order.inuviSyncedAt.toISOString() : order.inuviSyncedAt ?? null,
