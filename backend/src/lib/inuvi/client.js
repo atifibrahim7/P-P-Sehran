@@ -69,7 +69,15 @@ function extractUuid(obj) {
 	return null;
 }
 
+/** Inuvi's own order reference, e.g. "0000652404" - embedded in report filenames as InuviRef. */
+function extractMssRefNumber(obj) {
+	if (!obj || typeof obj !== 'object') return null;
+	const v = obj.MssRefNumber ?? obj.mssRefNumber;
+	return typeof v === 'string' && v.trim() ? v.trim() : null;
+}
+
 module.exports = {
 	inuviRequest,
 	extractUuid,
+	extractMssRefNumber,
 };

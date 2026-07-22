@@ -1,6 +1,6 @@
 const prisma = require('../../config/prisma');
 const { getDefaultInuviExamTypeId, getInuviSampleToLabId } = require('./config');
-const { inuviRequest, extractUuid } = require('./client');
+const { inuviRequest, extractUuid, extractMssRefNumber } = require('./client');
 const { buildCreateOrderRequest, buildCreateOrderExamRequest } = require('./mapOrder');
 
 const orderSyncInclude = {
@@ -92,6 +92,7 @@ async function syncOrderToInuvi(localOrderId) {
 			where: { id },
 			data: {
 				inuviOrderId: inuviOrderUuid,
+				inuviRef: extractMssRefNumber(created),
 				inuviSyncError: null,
 				inuviSyncedAt: new Date(),
 			},

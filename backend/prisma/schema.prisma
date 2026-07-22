@@ -43,6 +43,7 @@ model Practitioner {
   carts     Cart[]
   addresses PractitionerAddress[]
   contacts  PractitionerContact[]
+  approvedTestResults TestResult[]
 }
 
 model PractitionerAddress {
@@ -232,6 +233,9 @@ model Order {
   createdAt      DateTime @default(now())
 
   inuviOrderId   String?   @db.VarChar(36)
+  /** Inuvi's own order reference (their `MssRefNumber`), e.g. "0000652404" - the value embedded
+   *  in report filenames as InuviRef, used to disambiguate when a customer has >1 order awaiting a report. */
+  inuviRef       String?   @db.VarChar(20)
   inuviSyncError String?   @db.Text
   inuviSyncedAt  DateTime?
 
@@ -297,13 +301,22 @@ model Commission {
 }
 
 model TestResult {
-  id        Int    @id @default(autoincrement())
-  orderId   Int    @unique
-  reportUrl String
-  status    String
-  summary   String?
+  id                       Int          @id @default(autoincrement())
+  orderId                  Int          @unique
+  reportUrl                String       @db.VarChar(1024)
+  status                   ReportStatus @default(UPLOADED)
+  summary                  String?
+  approvedAt               DateTime?
+  approvedByPractitionerId Int?
+  contactRequestedAt       DateTime?
 
-  order Order @relation(fields: [orderId], references: [id])
+  order      Order         @relation(fields: [orderId], references: [id])
+  approvedBy Practitioner? @relation(fields: [approvedByPractitionerId], references: [id])
+}
+
+enum ReportStatus {
+  UPLOADED
+  APPROVED
 }
 
 enum Role {

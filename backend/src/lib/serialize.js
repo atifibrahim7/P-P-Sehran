@@ -110,6 +110,7 @@ function serializeCommissionListItem(r) {
 }
 
 function serializeTestResult(r) {
+	const o = r.order;
 	return {
 		id: r.id,
 		orderId: r.orderId,
@@ -117,6 +118,12 @@ function serializeTestResult(r) {
 		reportUrl: r.reportUrl,
 		summary: r.summary ?? null,
 		status: r.status,
+		approvedAt: r.approvedAt instanceof Date ? r.approvedAt.toISOString() : r.approvedAt ?? null,
+		contactRequestedAt:
+			r.contactRequestedAt instanceof Date ? r.contactRequestedAt.toISOString() : r.contactRequestedAt ?? null,
+		patientName: o?.patient?.user?.name ?? null,
+		policyNumber: o?.patient?.policyNumber ?? o?.practitioner?.policyNumber ?? null,
+		practitionerName: o?.practitioner?.user?.name ?? null,
 	};
 }
 

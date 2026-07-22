@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "node --test src/lib/inuvi/mapOrder.test.cjs",
+    "test": "node --test src/lib/inuvi/*.test.cjs",
     "start": "node index.js",
     "dev": "nodemon index.js",
     "build": "npx prisma generate",

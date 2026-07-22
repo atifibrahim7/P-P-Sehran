@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL  || 'https://longenyx.onrender.com/api'
+const BASE_URL = import.meta.env.VITE_API_BASE_URL  || 'http://localhost:3001/api'
 
 let token = null
 
@@ -122,6 +122,9 @@ export const deleteProduct = (id) => api(`/products/${id}`, { method: 'DELETE' }
 
 export const patchCommissionPayout = (id, payoutStatus) =>
   api(`/commissions/${id}`, { method: 'PATCH', body: JSON.stringify({ payoutStatus }) })
+
+export const approveTestResult = (id) => api(`/lab/results/${id}/approve`, { method: 'PATCH' })
+export const contactTestResultCustomer = (id) => api(`/lab/results/${id}/contact`, { method: 'POST' })
 
 /** Practitioner: paginated list + global summary. Admin: use api('/commissions') for full payload. */
 export const getCommissionsPage = (params = {}) => {

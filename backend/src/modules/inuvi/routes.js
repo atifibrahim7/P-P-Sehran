@@ -13,6 +13,7 @@ const {
 	verifyInuviSignature,
 	getActivityCode,
 } = require('../../lib/inuvi/webhook');
+const { parseInuviReportFilename } = require('../../lib/inuvi/reportFilename');
 const { ok, badRequest } = require('../../utils/response');
 
 const documentUpload = multer({
@@ -44,6 +45,20 @@ function configureCloudinary() {
 	cloudinary.config({ cloud_name: CLOUDINARY_CLOUD_NAME, api_key: CLOUDINARY_API_KEY, api_secret: CLOUDINARY_API_SECRET });
 	cloudinaryConfigured = true;
 	return true;
+}
+
+/**
+ * Upserts the TestResult for an order to point at a freshly uploaded report, resetting approval
+ * state - a corrected/re-issued report re-enters the practitioner approval queue instead of
+ * silently staying approved (mirrors the /lab/results/webhook behavior).
+ */
+async function linkReportToOrder(orderId, reportUrl) {
+	const tr = await prisma.testResult.upsert({
+		where: { orderId },
+		create: { orderId, reportUrl, status: 'UPLOADED' },
+		update: { reportUrl, status: 'UPLOADED', approvedAt: null, approvedByPractitionerId: null },
+	});
+	return { linked: true, orderId, testResultId: tr.id };
 }
 
 const router = Router();
@@ -189,17 +204,14 @@ router.post(
 			const rawBase = path.basename(originalName, ext);
 			const base = ext && rawBase.endsWith(ext) ? rawBase.slice(0, -ext.length) : rawBase;
 
-			// Find next available name to avoid duplicates
-			const existing = await prisma.inuviDocument.findMany({
-				where: {
-					OR: [
-						{ originalName },
-						{ originalName: { startsWith: `${base}(` } },
-					],
-				},
-				select: { originalName: true },
-			});
-			const takenNames = new Set(existing.map((d) => d.originalName));
+			// Find next available name to avoid duplicates. Filtered in JS rather than via a SQL
+			// LIKE/startsWith - this DB's connector mixes collations on pattern-match queries and
+			// throws ("Illegal mix of collations") for any Prisma contains/startsWith filter here.
+			const allNames = await prisma.inuviDocument.findMany({ select: { originalName: true } });
+			const prefix = `${base}(`;
+			const takenNames = new Set(
+				allNames.map((d) => d.originalName).filter((n) => n === originalName || n.startsWith(prefix))
+			);
 			let finalName = originalName;
 			if (takenNames.has(finalName)) {
 				let n = 1;
@@ -230,6 +242,73 @@ router.post(
 				},
 			});
 
+			// Link the report to a customer's order (and via Order.practitionerId, to their practitioner).
+			// The real uploader (the lab's system) doesn't send form fields - it encodes everything in
+			// the filename per the agreed convention "{Clinic}.{InuviRef}.{PolicyNumber}.{First}.{Last}.{Timestamp}".
+			// Explicit policyNumber/inuviOrderId form fields are kept as a manual/test override only.
+			const { policyNumber: explicitPolicyNumber, inuviOrderId: explicitInuviOrderId } = req.body || {};
+			let link = { linked: false };
+
+			if (explicitInuviOrderId) {
+				const order = await prisma.order.findFirst({
+					where: { inuviOrderId: String(explicitInuviOrderId) },
+					include: { patient: true, practitioner: true },
+				});
+				if (order) {
+					const expectedPolicy = order.patient?.policyNumber ?? order.practitioner?.policyNumber ?? null;
+					if (explicitPolicyNumber && expectedPolicy && String(explicitPolicyNumber) !== String(expectedPolicy)) {
+						console.warn(
+							`[inuvi document-upload] policyNumber mismatch for order ${order.id}: got ${explicitPolicyNumber}, expected ${expectedPolicy}`
+						);
+					}
+					link = await linkReportToOrder(order.id, doc.url);
+				} else {
+					console.warn(`[inuvi document-upload] no Order found for inuviOrderId=${explicitInuviOrderId}`);
+				}
+			} else {
+				const parsed = parseInuviReportFilename(base);
+				if (!parsed) {
+					console.warn(`[inuvi document-upload] filename "${originalName}" does not match the agreed naming convention - stored unlinked`);
+				} else {
+					const patient = await prisma.patient.findFirst({ where: { policyNumber: parsed.policyNumber, deletedAt: null } });
+					const practitioner = patient ? null : await prisma.practitioner.findFirst({ where: { policyNumber: parsed.policyNumber } });
+					const customer = patient || practitioner;
+
+					if (!customer) {
+						console.warn(`[inuvi document-upload] no Patient/Practitioner found for policyNumber=${parsed.policyNumber} (from filename)`);
+					} else {
+						const expectedSurname = customer.surname;
+						if (expectedSurname && parsed.lastName && expectedSurname.toLowerCase() !== parsed.lastName.toLowerCase()) {
+							console.warn(
+								`[inuvi document-upload] surname mismatch for policyNumber=${parsed.policyNumber}: filename says "${parsed.lastName}", record says "${expectedSurname}"`
+							);
+						}
+
+						const customerFilter = patient ? { patientId: patient.id } : { practitionerId: practitioner.id, patientId: null };
+						const candidateOrders = await prisma.order.findMany({
+							where: { ...customerFilter, testResult: { is: null } },
+							orderBy: { createdAt: 'desc' },
+							take: 10,
+						});
+
+						if (candidateOrders.length === 0) {
+							console.warn(`[inuvi document-upload] no Order without an existing report found for policyNumber=${parsed.policyNumber} (inuviReference=${parsed.inuviReference})`);
+						} else {
+							// inuviReference from the filename carries a trailing exam-sequence suffix (e.g. "0000652404-1")
+							// that Order.inuviRef (Inuvi's bare MssRefNumber) doesn't have - compare on the numeric prefix.
+							const refBase = parsed.inuviReference.split('-')[0];
+							const matched = candidateOrders.find((o) => o.inuviRef && o.inuviRef === refBase);
+							if (!matched && candidateOrders.length > 1) {
+								console.warn(
+									`[inuvi document-upload] policyNumber=${parsed.policyNumber} has multiple orders awaiting a report and inuviReference=${parsed.inuviReference} matched none of their inuviRef values - attaching to the most recent (order ${candidateOrders[0].id})`
+								);
+							}
+							link = await linkReportToOrder((matched || candidateOrders[0]).id, doc.url);
+						}
+					}
+				}
+			}
+
 			return ok(res, {
 				id: doc.id,
 				originalName: doc.originalName,
@@ -237,6 +316,7 @@ router.post(
 				publicId: doc.publicId,
 				format: doc.format,
 				bytes: doc.bytes,
+				...link,
 			});
 		} catch (e) {
 			next(e);
